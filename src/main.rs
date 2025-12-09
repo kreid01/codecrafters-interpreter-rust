@@ -8,6 +8,12 @@ enum Token {
     RightParen,
     LeftBrace,
     RightBrace,
+    Dot,
+    Comma,
+    Plus,
+    Minus,
+    Star,
+    SemiColon,
     Unknown,
 }
 
@@ -18,7 +24,13 @@ impl Display for Token {
             Self::RightParen => "RIGHT_PAREN ) null",
             Self::LeftBrace => "LEFT_BRACE { null",
             Self::RightBrace => "RIGHT_BRACE } null",
-            Self::Unknown => "",
+            Self::Comma => "COMMA , null",
+            Self::Dot => "DOT . null",
+            Self::Plus => "PLUS + null",
+            Self::Minus => "MINUS - null",
+            Self::Star => "STAR * null",
+            Self::SemiColon => "SEMICOLON ; null",
+            Self::Unknown => "Unknown",
         };
 
         write!(fmt, "{}", token)
@@ -67,6 +79,12 @@ fn tokenize(command: &str, filename: &str) {
                 ')' => Token::RightParen,
                 '{' => Token::LeftBrace,
                 '}' => Token::RightBrace,
+                '.' => Token::Dot,
+                ',' => Token::Comma,
+                '+' => Token::Plus,
+                '-' => Token::Minus,
+                '*' => Token::Star,
+                ';' => Token::SemiColon,
                 _ => Token::Unknown,
             };
             output.push(token);
