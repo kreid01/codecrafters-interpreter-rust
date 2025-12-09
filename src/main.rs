@@ -1,8 +1,6 @@
 #![allow(unused_variables)]
 use std::fmt::Display;
-use std::io::{Write, stderr};
-use std::iter::Peekable;
-use std::str::Chars;
+use std::io::stderr;
 use std::{env, fmt};
 use std::{fs, process};
 
@@ -26,9 +24,7 @@ enum Token {
     Greater,
     GreaterEqual,
     Division,
-    Space,
-    Tab,
-    Error(char, u32),
+    Error(char, usize),
 }
 
 impl Display for Token {
@@ -53,8 +49,6 @@ impl Display for Token {
             Self::GreaterEqual => "GREATER_EQUAL >= null".to_string(),
             Self::Greater => "GREATER > null".to_string(),
             Self::Division => "SLASH / null".to_string(),
-            Self::Space => "<|SPACE|>".to_string(),
-            Self::Tab => "<|TAB|>".to_string(),
             Self::Error(char, line) => {
                 format!("[line {}] Error: Unexpected character: {}", &line, &char)
             }
@@ -96,36 +90,38 @@ fn tokenize(command: &str, filename: &str) {
         String::new()
     });
 
-    let mut tokens = file_contents.chars().peekable();
     let mut output: Vec<Token> = Vec::new();
 
     if !file_contents.is_empty() {
-        while let Some(token) = tokens.next() {
-            let token = match token {
-                '(' => Token::LeftParen,
-                ')' => Token::RightParen,
-                '{' => Token::LeftBrace,
-                '}' => Token::RightBrace,
-                '.' => Token::Dot,
-                ',' => Token::Comma,
-                '+' => Token::Plus,
-                '-' => Token::Minus,
-                '*' => Token::Star,
-                ';' => Token::SemiColon,
-                '=' => check_equal_token(&mut tokens, Token::EqualEqual, Token::Equal),
-                '!' => check_equal_token(&mut tokens, Token::BangEqual, Token::Bang),
-                '>' => check_equal_token(&mut tokens, Token::GreaterEqual, Token::Greater),
-                '<' => check_equal_token(&mut tokens, Token::LessEqual, Token::Less),
-                '/' => match tokens.peek().copied() {
-                    Some('/') => break,
-                    _ => Token::Division,
-                },
-                ' ' | '\n' | '\t' => {
-                    continue;
-                }
-                _ => Token::Error(token, 1),
-            };
-            output.push(token);
+        for (i, line) in file_contents.lines().enumerate() {
+            let mut tokens = line.chars().peekable();
+            while let Some(token) = tokens.next() {
+                let token = match token {
+                    '(' => Token::LeftParen,
+                    ')' => Token::RightParen,
+                    '{' => Token::LeftBrace,
+                    '}' => Token::RightBrace,
+                    '.' => Token::Dot,
+                    ',' => Token::Comma,
+                    '+' => Token::Plus,
+                    '-' => Token::Minus,
+                    '*' => Token::Star,
+                    ';' => Token::SemiColon,
+                    '=' => check_equal_token(&mut tokens, Token::EqualEqual, Token::Equal),
+                    '!' => check_equal_token(&mut tokens, Token::BangEqual, Token::Bang),
+                    '>' => check_equal_token(&mut tokens, Token::GreaterEqual, Token::Greater),
+                    '<' => check_equal_token(&mut tokens, Token::LessEqual, Token::Less),
+                    '/' => match tokens.peek().copied() {
+                        Some('/') => break,
+                        _ => Token::Division,
+                    },
+                    ' ' | '\n' | '\t' => {
+                        continue;
+                    }
+                    _ => Token::Error(token, i + 1),
+                };
+                output.push(token);
+            }
         }
     }
 
