@@ -28,7 +28,13 @@ enum Token {
     Number(String, f64),
     Error(char, usize),
     ErrorString(String, usize),
+    Reserved(String),
 }
+
+const RESERVED_KEYWORDS: [&str; 16] = [
+    "and", "class", "else", "false", "for", "fun", "if", "nil", "or", "print", "return", "super",
+    "this", "true", "var", "while",
+];
 
 impl Display for Token {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> fmt::Result {
@@ -70,6 +76,9 @@ impl Display for Token {
             }
             Self::ErrorString(char, line) => {
                 format!("[line {}] Error: Unterminated string.", &line)
+            }
+            Self::Reserved(keyword) => {
+                format!("{} {} null", &keyword.to_uppercase(), &keyword)
             }
         };
 
@@ -192,9 +201,17 @@ fn get_identifier(
                 tokens.next();
                 word.push(char);
             }
-            _ => {
-                return Token::Identifier(word);
-            }
+            _ => return identifier_or_keyword(word),
+        }
+    }
+
+    identifier_or_keyword(word)
+}
+
+fn identifier_or_keyword(word: String) -> Token {
+    for reserved in RESERVED_KEYWORDS {
+        if word == reserved {
+            return Token::Reserved(word);
         }
     }
 
