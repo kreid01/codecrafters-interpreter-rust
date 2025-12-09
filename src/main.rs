@@ -1,7 +1,8 @@
 #![allow(unused_variables)]
 use std::fmt::Display;
-use std::fs;
+use std::io::{Write, stderr};
 use std::{env, fmt};
+use std::{fs, process};
 
 enum Token {
     LeftParen,
@@ -14,23 +15,25 @@ enum Token {
     Minus,
     Star,
     SemiColon,
-    Unknown,
+    Error(char, u32),
 }
 
 impl Display for Token {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> fmt::Result {
         let token = match *self {
-            Self::LeftParen => "LEFT_PAREN ( null",
-            Self::RightParen => "RIGHT_PAREN ) null",
-            Self::LeftBrace => "LEFT_BRACE { null",
-            Self::RightBrace => "RIGHT_BRACE } null",
-            Self::Comma => "COMMA , null",
-            Self::Dot => "DOT . null",
-            Self::Plus => "PLUS + null",
-            Self::Minus => "MINUS - null",
-            Self::Star => "STAR * null",
-            Self::SemiColon => "SEMICOLON ; null",
-            Self::Unknown => "Unknown",
+            Self::LeftParen => "LEFT_PAREN ( null".to_string(),
+            Self::RightParen => "RIGHT_PAREN ) null".to_string(),
+            Self::LeftBrace => "LEFT_BRACE { null".to_string(),
+            Self::RightBrace => "RIGHT_BRACE } null".to_string(),
+            Self::Comma => "COMMA , null".to_string(),
+            Self::Dot => "DOT . null".to_string(),
+            Self::Plus => "PLUS + null".to_string(),
+            Self::Minus => "MINUS - null".to_string(),
+            Self::Star => "STAR * null".to_string(),
+            Self::SemiColon => "SEMICOLON ; null".to_string(),
+            Self::Error(char, line) => {
+                format!("[line {}] Error: Unexpected character: {}", &line, &char)
+            }
         };
 
         write!(fmt, "{}", token)
@@ -85,15 +88,25 @@ fn tokenize(command: &str, filename: &str) {
                 '-' => Token::Minus,
                 '*' => Token::Star,
                 ';' => Token::SemiColon,
-                _ => Token::Unknown,
+                _ => Token::Error(token, 1),
             };
             output.push(token);
         }
     }
 
+    let has_error = output.iter().any(|x| matches!(x, Token::Error(_, _)));
+    let stderr = stderr();
+
     for token in output {
-        println!("{}", token)
+        match token {
+            Token::Error(_, _) => eprintln!("{}", token),
+            _ => println!("{}", token),
+        }
     }
 
     println!("EOF  null");
+
+    if has_error {
+        process::exit(65)
+    }
 }
