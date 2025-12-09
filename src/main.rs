@@ -15,6 +15,8 @@ enum Token {
     Minus,
     Star,
     SemiColon,
+    Equal,
+    EqualEqual,
     Error(char, u32),
 }
 
@@ -31,6 +33,8 @@ impl Display for Token {
             Self::Minus => "MINUS - null".to_string(),
             Self::Star => "STAR * null".to_string(),
             Self::SemiColon => "SEMICOLON ; null".to_string(),
+            Self::Equal => "EQUAL = null".to_string(),
+            Self::EqualEqual => "EQUAL_EQUAL == null".to_string(),
             Self::Error(char, line) => {
                 format!("[line {}] Error: Unexpected character: {}", &line, &char)
             }
@@ -88,6 +92,16 @@ fn tokenize(command: &str, filename: &str) {
                 '-' => Token::Minus,
                 '*' => Token::Star,
                 ';' => Token::SemiColon,
+                '=' => {
+                    if let Some(next) = tokens.peek()
+                        && *next == '='
+                    {
+                        tokens.next();
+                        Token::EqualEqual
+                    } else {
+                        Token::Equal
+                    }
+                }
                 _ => Token::Error(token, 1),
             };
             output.push(token);
