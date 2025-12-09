@@ -24,12 +24,16 @@ enum Token {
     Greater,
     GreaterEqual,
     Division,
+    String(String),
+    Identifier(String),
+    Number(i32),
     Error(char, usize),
+    ErrorString(String, usize),
 }
 
 impl Display for Token {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> fmt::Result {
-        let token = match *self {
+        let token = match self {
             Self::LeftParen => "LEFT_PAREN ( null".to_string(),
             Self::RightParen => "RIGHT_PAREN ) null".to_string(),
             Self::LeftBrace => "LEFT_BRACE { null".to_string(),
@@ -49,8 +53,20 @@ impl Display for Token {
             Self::GreaterEqual => "GREATER_EQUAL >= null".to_string(),
             Self::Greater => "GREATER > null".to_string(),
             Self::Division => "SLASH / null".to_string(),
+            Self::Identifier(identifier) => {
+                format!("IDENTIFIER \"{}\" {}", &identifier, &identifier)
+            }
+            Self::String(string) => {
+                format!("STRING \"{}\" {}", &string, &string)
+            }
+            Self::Number(string) => {
+                format!("NUMBER \"{}\" {}", &string, &string)
+            }
             Self::Error(char, line) => {
                 format!("[line {}] Error: Unexpected character: {}", &line, &char)
+            }
+            Self::ErrorString(char, line) => {
+                format!("[line {}] Error: Unterminated string.", &line)
             }
         };
 
@@ -61,7 +77,7 @@ impl Display for Token {
 // USE
 // impl
 // traits
-// mom & boxing
+// mem & boxing
 // no unwraps
 
 fn main() {
@@ -91,10 +107,13 @@ fn tokenize(command: &str, filename: &str) {
     });
 
     let mut output: Vec<Token> = Vec::new();
+    let mut errors: Vec<Token> = Vec::new();
 
     if !file_contents.is_empty() {
         for (i, line) in file_contents.lines().enumerate() {
             let mut tokens = line.chars().peekable();
+            let line_number = i + 1;
+
             while let Some(token) = tokens.next() {
                 let token = match token {
                     '(' => Token::LeftParen,
@@ -107,10 +126,10 @@ fn tokenize(command: &str, filename: &str) {
                     '-' => Token::Minus,
                     '*' => Token::Star,
                     ';' => Token::SemiColon,
-                    '=' => check_equal_token(&mut tokens, Token::EqualEqual, Token::Equal),
-                    '!' => check_equal_token(&mut tokens, Token::BangEqual, Token::Bang),
-                    '>' => check_equal_token(&mut tokens, Token::GreaterEqual, Token::Greater),
-                    '<' => check_equal_token(&mut tokens, Token::LessEqual, Token::Less),
+                    '=' => get_equal_token(&mut tokens, Token::EqualEqual, Token::Equal),
+                    '!' => get_equal_token(&mut tokens, Token::BangEqual, Token::Bang),
+                    '>' => get_equal_token(&mut tokens, Token::GreaterEqual, Token::Greater),
+                    '<' => get_equal_token(&mut tokens, Token::LessEqual, Token::Less),
                     '/' => match tokens.peek().copied() {
                         Some('/') => break,
                         _ => Token::Division,
@@ -118,31 +137,98 @@ fn tokenize(command: &str, filename: &str) {
                     ' ' | '\n' | '\t' => {
                         continue;
                     }
-                    _ => Token::Error(token, i + 1),
+                    '"' => get_string_token(&mut tokens, line_number),
+                    number if token.is_numeric() => {
+                        get_numeric_token(&mut tokens, token, line_number)
+                    }
+                    _ => Token::Error(token, line_number),
                 };
-                output.push(token);
+
+                match token {
+                    Token::ErrorString(_, _) | Token::Error(_, _) => {
+                        errors.push(token);
+                    }
+                    _ => {
+                        output.push(token);
+                    }
+                }
             }
         }
     }
 
-    let has_error = output.iter().any(|x| matches!(x, Token::Error(_, _)));
-    let stderr = stderr();
+    let has_errors = !errors.is_empty();
+
+    for token in errors {
+        eprintln!("{}", token);
+    }
 
     for token in output {
-        match token {
-            Token::Error(_, _) => eprintln!("{}", token),
-            _ => println!("{}", token),
-        }
+        println!("{}", token);
     }
 
     println!("EOF  null");
 
-    if has_error {
+    if has_errors {
         process::exit(65)
     }
 }
 
-fn check_equal_token(
+fn get_numeric_token(
+    tokens: &mut std::iter::Peekable<std::str::Chars<'_>>,
+    token: char,
+    line: usize,
+) -> Token {
+    let mut number = token.to_string();
+    let mut decimal = false;
+
+    while let Some(next) = tokens.peek().cloned() {
+        match next {
+            '.' => {
+                if decimal {
+                    return Token::ErrorString(number, 1);
+                }
+
+                decimal = true;
+                number.push(next);
+            }
+            c if next.is_numeric() => {
+                tokens.next();
+                number.push(c);
+            }
+            _ => return parse_number(number, line),
+        }
+    }
+
+    parse_number(number, line)
+}
+
+fn parse_number(string: String, line: usize) -> Token {
+    let number = string.parse::<i32>();
+    match number {
+        Ok(number) => Token::Number(number),
+        Err(_) => Token::ErrorString(string, 1),
+    }
+}
+
+fn get_string_token(tokens: &mut std::iter::Peekable<std::str::Chars<'_>>, line: usize) -> Token {
+    let mut string = String::new();
+    while let Some(next) = tokens.peek().cloned() {
+        match next {
+            '"' => {
+                tokens.next();
+                return Token::String(string);
+            }
+            c => {
+                tokens.next();
+                string.push(c);
+            }
+        }
+    }
+
+    Token::ErrorString(string, line)
+}
+
+fn get_equal_token(
     tokens: &mut std::iter::Peekable<std::str::Chars<'_>>,
     if_equal_token: Token,
     token: Token,
