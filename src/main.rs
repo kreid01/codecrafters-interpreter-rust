@@ -2,6 +2,12 @@
 use std::env;
 use std::fs;
 
+// USE
+// impl
+// traits
+// mom & boxing
+// no unwraps
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 3 {
@@ -14,7 +20,6 @@ fn main() {
 
     match command.as_str() {
         "tokenize" => {
-            // You can use print statements as follows for debugging, they'll be visible when running tests.
             eprintln!("Logs from your program will appear here!");
 
             let file_contents = fs::read_to_string(filename).unwrap_or_else(|_| {
@@ -22,12 +27,11 @@ fn main() {
                 String::new()
             });
 
-            // TODO: Uncomment the code below to pass the first stage
-            // if !file_contents.is_empty() {
-            //     panic!("Scanner not implemented");
-            // } else {
-            //     println!("EOF  null"); // Placeholder, replace this line when implementing the scanner
-            // }
+            if !file_contents.is_empty() {
+                panic!("Scanner not implemented");
+            } else {
+                println!("EOF  null"); // Placeholder, replace this line when implementing the scanner
+            }
         }
         _ => {
             eprintln!("Unknown command: {}", command);
