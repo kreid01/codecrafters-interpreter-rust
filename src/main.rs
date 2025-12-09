@@ -17,6 +17,8 @@ enum Token {
     SemiColon,
     Equal,
     EqualEqual,
+    Bang,
+    BangEqual,
     Error(char, u32),
 }
 
@@ -35,6 +37,8 @@ impl Display for Token {
             Self::SemiColon => "SEMICOLON ; null".to_string(),
             Self::Equal => "EQUAL = null".to_string(),
             Self::EqualEqual => "EQUAL_EQUAL == null".to_string(),
+            Self::BangEqual => "BANG_EQUAL != null".to_string(),
+            Self::Bang => "BANG ! null".to_string(),
             Self::Error(char, line) => {
                 format!("[line {}] Error: Unexpected character: {}", &line, &char)
             }
@@ -100,6 +104,16 @@ fn tokenize(command: &str, filename: &str) {
                         Token::EqualEqual
                     } else {
                         Token::Equal
+                    }
+                }
+                '!' => {
+                    if let Some(next) = tokens.peek()
+                        && *next == '='
+                    {
+                        tokens.next();
+                        Token::BangEqual
+                    } else {
+                        Token::Bang
                     }
                 }
                 _ => Token::Error(token, 1),
