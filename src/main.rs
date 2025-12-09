@@ -25,6 +25,7 @@ enum Token {
     LessEqual,
     Greater,
     GreaterEqual,
+    Division,
     Error(char, u32),
 }
 
@@ -49,6 +50,7 @@ impl Display for Token {
             Self::Less => "LESS < null".to_string(),
             Self::GreaterEqual => "GREATER_EQUAL >= null".to_string(),
             Self::Greater => "GREATER > null".to_string(),
+            Self::Division => "SLASH / null".to_string(),
             Self::Error(char, line) => {
                 format!("[line {}] Error: Unexpected character: {}", &line, &char)
             }
@@ -110,6 +112,15 @@ fn tokenize(command: &str, filename: &str) {
                 '!' => check_equal_token(&mut tokens, Token::BangEqual, Token::Bang),
                 '>' => check_equal_token(&mut tokens, Token::GreaterEqual, Token::Greater),
                 '<' => check_equal_token(&mut tokens, Token::LessEqual, Token::Less),
+                '/' => {
+                    if let Some(next) = tokens.peek()
+                        && *next == '/'
+                    {
+                        break;
+                    } else {
+                        Token::Division
+                    }
+                }
                 _ => Token::Error(token, 1),
             };
             output.push(token);
