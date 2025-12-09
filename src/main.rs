@@ -53,7 +53,7 @@ impl Display for Token {
             Self::Greater => "GREATER > null".to_string(),
             Self::Division => "SLASH / null".to_string(),
             Self::Identifier(identifier) => {
-                format!("IDENTIFIER \"{}\" {}", &identifier, &identifier)
+                format!("IDENTIFIER {} null", &identifier)
             }
             Self::String(string) => {
                 format!("STRING \"{}\" {}", &string, &string)
@@ -144,6 +144,9 @@ fn tokenize(command: &str, filename: &str) {
                     number if token.is_numeric() => {
                         get_numeric_token(&mut tokens, token, line_number)
                     }
+                    identifier if token.is_alphabetic() || token == '_' => {
+                        get_identifier(&mut tokens, token, line_number)
+                    }
                     _ => Token::Error(token, line_number),
                 };
 
@@ -174,6 +177,28 @@ fn tokenize(command: &str, filename: &str) {
     if has_errors {
         process::exit(65)
     }
+}
+
+fn get_identifier(
+    tokens: &mut std::iter::Peekable<std::str::Chars<'_>>,
+    token: char,
+    line_number: usize,
+) -> Token {
+    let mut word = token.to_string();
+
+    while let Some(next) = tokens.peek().cloned() {
+        match next {
+            char if next.is_alphanumeric() || next == '_' => {
+                tokens.next();
+                word.push(char);
+            }
+            _ => {
+                return Token::Identifier(word);
+            }
+        }
+    }
+
+    Token::Identifier(word)
 }
 
 fn get_numeric_token(
