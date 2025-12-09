@@ -1,6 +1,5 @@
 #![allow(unused_variables)]
 use std::fmt::Display;
-use std::io::stderr;
 use std::{env, fmt};
 use std::{fs, process};
 
@@ -26,7 +25,7 @@ enum Token {
     Division,
     String(String),
     Identifier(String),
-    Number(i32),
+    Number(String, f64),
     Error(char, usize),
     ErrorString(String, usize),
 }
@@ -59,8 +58,12 @@ impl Display for Token {
             Self::String(string) => {
                 format!("STRING \"{}\" {}", &string, &string)
             }
-            Self::Number(string) => {
-                format!("NUMBER \"{}\" {}", &string, &string)
+            Self::Number(string, number) => {
+                if number.to_string().contains('.') {
+                    format!("NUMBER {} {}", &string, &number)
+                } else {
+                    format!("NUMBER {} {}.0", &string, &number)
+                }
             }
             Self::Error(char, line) => {
                 format!("[line {}] Error: Unexpected character: {}", &line, &char)
@@ -189,6 +192,7 @@ fn get_numeric_token(
                 }
 
                 decimal = true;
+                tokens.next();
                 number.push(next);
             }
             c if next.is_numeric() => {
@@ -203,10 +207,11 @@ fn get_numeric_token(
 }
 
 fn parse_number(string: String, line: usize) -> Token {
-    let number = string.parse::<i32>();
+    let number = string.parse::<f64>();
+    let decimal = string.contains('.');
     match number {
-        Ok(number) => Token::Number(number),
-        Err(_) => Token::ErrorString(string, 1),
+        Ok(number) => Token::Number(string, number),
+        Err(_) => Token::ErrorString(string, line),
     }
 }
 
