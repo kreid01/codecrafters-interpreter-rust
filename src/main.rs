@@ -26,6 +26,8 @@ enum Token {
     Greater,
     GreaterEqual,
     Division,
+    Space,
+    Tab,
     Error(char, u32),
 }
 
@@ -51,6 +53,8 @@ impl Display for Token {
             Self::GreaterEqual => "GREATER_EQUAL >= null".to_string(),
             Self::Greater => "GREATER > null".to_string(),
             Self::Division => "SLASH / null".to_string(),
+            Self::Space => "<|SPACE|>".to_string(),
+            Self::Tab => "<|TAB|>".to_string(),
             Self::Error(char, line) => {
                 format!("[line {}] Error: Unexpected character: {}", &line, &char)
             }
@@ -112,14 +116,12 @@ fn tokenize(command: &str, filename: &str) {
                 '!' => check_equal_token(&mut tokens, Token::BangEqual, Token::Bang),
                 '>' => check_equal_token(&mut tokens, Token::GreaterEqual, Token::Greater),
                 '<' => check_equal_token(&mut tokens, Token::LessEqual, Token::Less),
-                '/' => {
-                    if let Some(next) = tokens.peek()
-                        && *next == '/'
-                    {
-                        break;
-                    } else {
-                        Token::Division
-                    }
+                '/' => match tokens.peek().copied() {
+                    Some('/') => break,
+                    _ => Token::Division,
+                },
+                ' ' | '\n' | '\t' => {
+                    continue;
                 }
                 _ => Token::Error(token, 1),
             };
@@ -149,12 +151,11 @@ fn check_equal_token(
     if_equal_token: Token,
     token: Token,
 ) -> Token {
-    if let Some(next) = tokens.peek()
-        && *next == '='
-    {
-        tokens.next();
-        if_equal_token
-    } else {
-        token
+    match tokens.peek().copied() {
+        Some('=') => {
+            tokens.next();
+            if_equal_token
+        }
+        _ => token,
     }
 }
