@@ -1,6 +1,8 @@
 #![allow(unused_variables)]
 use std::fmt::Display;
 use std::io::{Write, stderr};
+use std::iter::Peekable;
+use std::str::Chars;
 use std::{env, fmt};
 use std::{fs, process};
 
@@ -19,6 +21,10 @@ enum Token {
     EqualEqual,
     Bang,
     BangEqual,
+    Less,
+    LessEqual,
+    Greater,
+    GreaterEqual,
     Error(char, u32),
 }
 
@@ -39,6 +45,10 @@ impl Display for Token {
             Self::EqualEqual => "EQUAL_EQUAL == null".to_string(),
             Self::BangEqual => "BANG_EQUAL != null".to_string(),
             Self::Bang => "BANG ! null".to_string(),
+            Self::LessEqual => "LESS_EQUAL <= null".to_string(),
+            Self::Less => "LESS < null".to_string(),
+            Self::GreaterEqual => "GREATER_EQUAL >= null".to_string(),
+            Self::Greater => "GREATER > null".to_string(),
             Self::Error(char, line) => {
                 format!("[line {}] Error: Unexpected character: {}", &line, &char)
             }
@@ -96,26 +106,10 @@ fn tokenize(command: &str, filename: &str) {
                 '-' => Token::Minus,
                 '*' => Token::Star,
                 ';' => Token::SemiColon,
-                '=' => {
-                    if let Some(next) = tokens.peek()
-                        && *next == '='
-                    {
-                        tokens.next();
-                        Token::EqualEqual
-                    } else {
-                        Token::Equal
-                    }
-                }
-                '!' => {
-                    if let Some(next) = tokens.peek()
-                        && *next == '='
-                    {
-                        tokens.next();
-                        Token::BangEqual
-                    } else {
-                        Token::Bang
-                    }
-                }
+                '=' => check_equal_token(&mut tokens, Token::EqualEqual, Token::Equal),
+                '!' => check_equal_token(&mut tokens, Token::BangEqual, Token::Bang),
+                '>' => check_equal_token(&mut tokens, Token::GreaterEqual, Token::Greater),
+                '<' => check_equal_token(&mut tokens, Token::LessEqual, Token::Less),
                 _ => Token::Error(token, 1),
             };
             output.push(token);
@@ -136,5 +130,20 @@ fn tokenize(command: &str, filename: &str) {
 
     if has_error {
         process::exit(65)
+    }
+}
+
+fn check_equal_token(
+    tokens: &mut std::iter::Peekable<std::str::Chars<'_>>,
+    if_equal_token: Token,
+    token: Token,
+) -> Token {
+    if let Some(next) = tokens.peek()
+        && *next == '='
+    {
+        tokens.next();
+        if_equal_token
+    } else {
+        token
     }
 }
