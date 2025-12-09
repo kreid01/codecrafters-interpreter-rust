@@ -6,7 +6,8 @@ use std::{env, fmt};
 enum Token {
     LeftParen,
     RightParen,
-    EndOfFile,
+    LeftBrace,
+    RightBrace,
     Unknown,
 }
 
@@ -15,7 +16,8 @@ impl Display for Token {
         let token = match *self {
             Self::LeftParen => "LEFT_PAREN ( null",
             Self::RightParen => "RIGHT_PAREN ) null",
-            Self::EndOfFile => "EOR  null",
+            Self::LeftBrace => "LEFT_BRACE { null",
+            Self::RightBrace => "RIGHT_BRACE } null",
             Self::Unknown => "",
         };
 
@@ -63,6 +65,8 @@ fn tokenize(command: &str, filename: &str) {
             let token = match token {
                 '(' => Token::LeftParen,
                 ')' => Token::RightParen,
+                '{' => Token::LeftBrace,
+                '}' => Token::RightBrace,
                 _ => Token::Unknown,
             };
             output.push(token);
