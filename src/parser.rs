@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::fmt::{self, Display};
 
 use crate::tokenizer::tokenize;
@@ -7,10 +8,10 @@ pub fn parse(command: &str, filename: &str) {
     let (tokens, errors) = tokenize(command, filename);
     let mut ast: Vec<Expression> = Vec::new();
 
-    let mut tokens_iter = tokens.iter().cloned();
+    let mut tokens: VecDeque<Token> = VecDeque::from(tokens);
 
-    while let Some(token) = tokens_iter.next() {
-        if let Some(expr) = parse_token(token, &tokens) {
+    while let Some(token) = tokens.pop_front() {
+        if let Some(expr) = parse_token(token, &mut tokens) {
             ast.push(expr);
         }
     }
@@ -20,7 +21,7 @@ pub fn parse(command: &str, filename: &str) {
     }
 }
 
-fn parse_token(token: Token, tokens: &[Token]) -> Option<Expression> {
+fn parse_token(token: Token, tokens: &mut VecDeque<Token>) -> Option<Expression> {
     match token {
         Token::String(literal) => get_string_literal_expression(literal),
         Token::Number(_, number) => Some(Expression::Literal(Literal::Number(number))),
@@ -33,13 +34,13 @@ fn parse_token(token: Token, tokens: &[Token]) -> Option<Expression> {
     }
 }
 
-fn get_group_expression(tokens: &[Token]) -> Option<Expression> {
-    let mut inner: String = "( group ".to_string();
-    while let Some(next) = tokens.iter().next().cloned() {
+fn get_group_expression(tokens: &mut VecDeque<Token>) -> Option<Expression> {
+    let mut inner: String = "(group ".to_string();
+    while let Some(next) = tokens.pop_front() {
         match next {
-            Token::LeftParen => inner.push(')'),
+            Token::RightParen => inner.push(')'),
             token => {
-                if let Some(expression) = parse_token(token, tokens) {
+                if let Some(expression) = parse_token(token.to_owned(), tokens) {
                     inner.push_str(&expression.to_string());
                 }
             }
@@ -52,8 +53,8 @@ fn get_string_literal_expression(literal: String) -> Option<Expression> {
     Some(Expression::Literal(Literal::String(literal)))
 }
 
-fn get_unary_expression(unary: Unary, tokens: &[Token]) -> Option<Expression> {
-    let expression = match tokens.iter().next() {
+fn get_unary_expression(unary: Unary, tokens: &mut VecDeque<Token>) -> Option<Expression> {
+    let expression = match tokens.pop_front() {
         Some(Token::True) => Expression::Unary(unary, Box::new(Expression::Literal(Literal::True))),
         Some(Token::False) => {
             Expression::Unary(unary, Box::new(Expression::Literal(Literal::False)))
