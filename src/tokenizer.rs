@@ -3,7 +3,7 @@ use std::process;
 use crate::tokens::{KEYWORD_MAP, Token};
 use crate::utils::get_file_contents;
 
-pub fn tokenize(command: &str, filename: &str) -> (Vec<Token>, Vec<Token>) {
+pub fn tokenize(filename: &str) -> (Vec<Token>, Vec<Token>) {
     eprintln!("Logs from your program will appear here!");
 
     let mut output: Vec<Token> = Vec::new();

@@ -4,8 +4,8 @@ use std::fmt::{self, Display};
 use crate::tokenizer::tokenize;
 use crate::tokens::{AsString, Token};
 
-pub fn parse(command: &str, filename: &str) {
-    let (tokens, errors) = tokenize(command, filename);
+pub fn parse(filename: &str) {
+    let (tokens, errors) = tokenize(filename);
     let mut ast: Vec<Expression> = Vec::new();
 
     let mut tokens: VecDeque<Token> = VecDeque::from(tokens);
@@ -26,8 +26,8 @@ fn parse_token(token: Token, tokens: &mut VecDeque<Token>) -> Option<Expression>
         Token::String(literal) => get_string_literal_expression(literal),
         Token::Number(_, number) => Some(Expression::Literal(Literal::Number(number))),
         Token::LeftParen => get_group_expression(tokens),
-        Token::Bang => get_unary_expression(Unary::Bang, tokens),
-        Token::Minus => get_unary_expression(Unary::Minus, tokens),
+        Token::Bang => get_unary_expression(Unary::Bang, Token::Bang, tokens),
+        Token::Minus => get_unary_expression(Unary::Minus, Token::Minus, tokens),
         Token::False => Some(Expression::Literal(Literal::False)),
         Token::True => Some(Expression::Literal(Literal::True)),
         _ => get_string_literal_expression(token.literal().to_string()),
@@ -53,13 +53,28 @@ fn get_string_literal_expression(literal: String) -> Option<Expression> {
     Some(Expression::Literal(Literal::String(literal)))
 }
 
-fn get_unary_expression(unary: Unary, tokens: &mut VecDeque<Token>) -> Option<Expression> {
+fn get_unary_expression(
+    unary: Unary,
+    token: Token,
+    tokens: &mut VecDeque<Token>,
+) -> Option<Expression> {
     let expression = match tokens.pop_front() {
         Some(Token::True) => Expression::Unary(unary, Box::new(Expression::Literal(Literal::True))),
         Some(Token::False) => {
             Expression::Unary(unary, Box::new(Expression::Literal(Literal::False)))
         }
-        _ => {
+        Some(Token::Number(_, literal)) => Expression::Unary(
+            unary,
+            Box::new(Expression::Literal(Literal::Number(literal))),
+        ),
+        Some(token) => {
+            if let Some(next) = parse_token(token, tokens) {
+                Expression::Unary(unary, Box::new(next))
+            } else {
+                return None;
+            }
+        }
+        None => {
             return None;
         }
     };
