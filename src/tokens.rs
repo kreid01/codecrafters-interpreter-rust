@@ -1,5 +1,5 @@
 use once_cell::sync::Lazy;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::fmt::{self, Display};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -153,5 +153,18 @@ impl Display for Token {
         };
 
         write!(fmt, "{}", token)
+    }
+}
+
+pub struct TokenStream {
+    pub tokens: VecDeque<Token>,
+}
+
+impl TokenStream {
+    pub fn peek(&self) -> Option<&Token> {
+        self.tokens.front()
+    }
+    pub fn next(&mut self) -> Option<Token> {
+        self.tokens.pop_front()
     }
 }

@@ -41,10 +41,10 @@ pub fn tokenize(filename: &str) -> (Vec<Token>, Vec<Token>) {
                     }
                     '"' => get_string_token(&mut tokens, line_number),
                     number if token.is_numeric() => {
-                        get_numeric_token(&mut tokens, token, line_number)
+                        get_numeric_token(&mut tokens, number, line_number)
                     }
                     identifier if token.is_alphabetic() || token == '_' => {
-                        get_identifier(&mut tokens, token, line_number)
+                        get_identifier(&mut tokens, identifier, line_number)
                     }
                     _ => Token::Error(token, line_number),
                 };
