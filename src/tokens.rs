@@ -1,5 +1,8 @@
+use once_cell::sync::Lazy;
+use std::collections::HashMap;
 use std::fmt::{self, Display};
 
+#[derive(Clone, Debug, PartialEq)]
 pub enum Token {
     LeftParen,
     RightParen,
@@ -22,16 +25,76 @@ pub enum Token {
     Division,
     String(String),
     Identifier(String),
-    Number(String, f64),
+    Number(String, String),
     Error(char, usize),
     ErrorString(String, usize),
-    Reserved(String),
+
+    And,
+    Class,
+    Else,
+    False,
+    For,
+    Fun,
+    If,
+    Nil,
+    Or,
+    Print,
+    Return,
+    Super,
+    This,
+    True,
+    Var,
+    While,
 }
 
-pub const RESERVED_KEYWORDS: [&str; 16] = [
-    "and", "class", "else", "false", "for", "fun", "if", "nil", "or", "print", "return", "super",
-    "this", "true", "var", "while",
-];
+pub static KEYWORD_MAP: Lazy<HashMap<&'static str, Token>> = Lazy::new(|| {
+    let mut m = HashMap::new();
+    m.insert("and", Token::And);
+    m.insert("class", Token::Class);
+    m.insert("else", Token::Else);
+    m.insert("false", Token::False);
+    m.insert("for", Token::For);
+    m.insert("fun", Token::Fun);
+    m.insert("if", Token::If);
+    m.insert("nil", Token::Nil);
+    m.insert("or", Token::Or);
+    m.insert("print", Token::Print);
+    m.insert("return", Token::Return);
+    m.insert("super", Token::Super);
+    m.insert("this", Token::This);
+    m.insert("true", Token::True);
+    m.insert("var", Token::Var);
+    m.insert("while", Token::While);
+    m
+});
+
+pub trait AsString {
+    fn literal(&self) -> &str;
+}
+
+impl AsString for Token {
+    fn literal(&self) -> &str {
+        match self {
+            Self::And => "and",
+            Self::Class => "class",
+            Self::Else => "else",
+            Self::False => "false",
+            Self::For => "for",
+            Self::Fun => "fun",
+            Self::If => "if",
+            Self::Nil => "nil",
+            Self::Or => "or",
+            Self::Print => "print",
+            Self::Return => "return",
+            Self::Super => "super",
+            Self::This => "this",
+            Self::True => "true",
+            Self::Var => "var",
+            Self::While => "while",
+            _ => "No literal",
+        }
+    }
+}
 
 impl Display for Token {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> fmt::Result {
@@ -62,21 +125,31 @@ impl Display for Token {
                 format!("STRING \"{}\" {}", &string, &string)
             }
             Self::Number(string, number) => {
-                if number.to_string().contains('.') {
-                    format!("NUMBER {} {}", &string, &number)
-                } else {
-                    format!("NUMBER {} {}.0", &string, &number)
-                }
+                format!("NUMBER {} {}", string, number)
             }
+
             Self::Error(char, line) => {
                 format!("[line {}] Error: Unexpected character: {}", &line, &char)
             }
             Self::ErrorString(char, line) => {
                 format!("[line {}] Error: Unterminated string.", &line)
             }
-            Self::Reserved(keyword) => {
-                format!("{} {} null", &keyword.to_uppercase(), &keyword)
-            }
+            Self::And => format!("{} {} null", "AND", "and"),
+            Self::Class => format!("{} {} null", "CLASS", "class"),
+            Self::Else => format!("{} {} null", "ELSE", "else"),
+            Self::False => format!("{} {} null", "FALSE", "false"),
+            Self::For => format!("{} {} null", "FOR", "for"),
+            Self::Fun => format!("{} {} null", "FUN", "fun"),
+            Self::If => format!("{} {} null", "IF", "if"),
+            Self::Nil => format!("{} {} null", "NIL", "nil"),
+            Self::Or => format!("{} {} null", "OR", "or"),
+            Self::Print => format!("{} {} null", "PRINT", "print"),
+            Self::Return => format!("{} {} null", "RETURN", "return"),
+            Self::Super => format!("{} {} null", "SUPER", "super"),
+            Self::This => format!("{} {} null", "THIS", "this"),
+            Self::True => format!("{} {} null", "TRUE", "true"),
+            Self::Var => format!("{} {} null", "VAR", "var"),
+            Self::While => format!("{} {} null", "WHILE", "while"),
         };
 
         write!(fmt, "{}", token)

@@ -1,9 +1,9 @@
 use std::process;
 
-use crate::tokens::{RESERVED_KEYWORDS, Token};
+use crate::tokens::{KEYWORD_MAP, Token};
 use crate::utils::get_file_contents;
 
-pub fn tokenize(command: &str, filename: &str) {
+pub fn tokenize(command: &str, filename: &str) -> (Vec<Token>, Vec<Token>) {
     eprintln!("Logs from your program will appear here!");
 
     let mut output: Vec<Token> = Vec::new();
@@ -61,6 +61,10 @@ pub fn tokenize(command: &str, filename: &str) {
         }
     }
 
+    (output, errors)
+}
+
+pub fn print_tokens(output: Vec<Token>, errors: Vec<Token>) {
     let has_errors = !errors.is_empty();
 
     for token in errors {
@@ -91,21 +95,18 @@ fn get_identifier(
                 tokens.next();
                 word.push(char);
             }
-            _ => return identifier_or_keyword(word),
+            _ => return identifier_or_keyword(&word),
         }
     }
 
-    identifier_or_keyword(word)
+    identifier_or_keyword(&word)
 }
 
-fn identifier_or_keyword(word: String) -> Token {
-    for reserved in RESERVED_KEYWORDS {
-        if word == reserved {
-            return Token::Reserved(word);
-        }
-    }
-
-    Token::Identifier(word)
+fn identifier_or_keyword(word: &str) -> Token {
+    KEYWORD_MAP
+        .get(word)
+        .cloned()
+        .unwrap_or_else(|| Token::Identifier(word.to_string()))
 }
 
 fn get_numeric_token(
@@ -140,9 +141,16 @@ fn get_numeric_token(
 
 fn parse_number(string: String, line: usize) -> Token {
     let number = string.parse::<f64>();
-    let decimal = string.contains('.');
+
     match number {
-        Ok(number) => Token::Number(string, number),
+        Ok(number) => {
+            let number = if number.fract() == 0.0 {
+                format!("{:.1}", number)
+            } else {
+                format!("{}", number)
+            };
+            Token::Number(string, number)
+        }
         Err(_) => Token::ErrorString(string, line),
     }
 }

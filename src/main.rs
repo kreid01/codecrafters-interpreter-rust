@@ -2,7 +2,7 @@
 use std::env;
 
 use crate::parser::parse;
-use crate::tokenizer::tokenize;
+use crate::tokenizer::{print_tokens, tokenize};
 
 mod parser;
 mod tokenizer;
@@ -26,7 +26,10 @@ fn main() {
     let filename = &args[2];
 
     match command.as_str() {
-        "tokenize" => tokenize(command, filename),
+        "tokenize" => {
+            let (output, errors) = tokenize(command, filename);
+            print_tokens(output, errors);
+        }
         "parse" => parse(command, filename),
         _ => {
             eprintln!("Unknown command: {}", command);
