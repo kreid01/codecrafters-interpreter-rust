@@ -7,6 +7,17 @@ pub fn parse(command: &str, filename: &str) {
         .collect();
 
     for token in tokens {
-        println!("{}", token)
+        match token.parse::<f32>() {
+            Ok(_) => {
+                if token.contains('.') {
+                    println!("{}", token)
+                } else {
+                    println!("{}.0", token)
+                }
+            }
+            Err(_) => {
+                println!("{}", token)
+            }
+        }
     }
 }
