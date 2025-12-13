@@ -1,28 +1,19 @@
-use std::collections::VecDeque;
-use std::fmt::{self, Display};
-
-use crate::expression::{self, Expression, Literal, Operator, Unary};
+use crate::expression::{Expression, Operator, Primary, Unary};
 use crate::tokenizer::tokenize;
-use crate::tokens::{AsString, Token, TokenStream};
-
-fn precedence(op: &Operator) -> u8 {
-    match op {
-        Operator::Plus | Operator::Minus => 1,
-        Operator::Star | Operator::Division => 2,
-        _ => 0,
-    }
-}
+use crate::tokens::{Token, TokenStream};
+use std::collections::VecDeque;
 
 pub fn parse(filename: &str) {
-    let (tokens, errors) = tokenize(filename);
+    let (tokens, _) = tokenize(filename);
     let mut ast: Vec<Expression> = Vec::new();
-
     let tokens: VecDeque<Token> = tokens.into();
     let mut stream = TokenStream { tokens };
 
-    while let Some(token) = stream.next() {
-        if let Some(expr) = parse_token(token, &mut stream) {
+    while !stream.is_at_end() {
+        if let Some(expr) = expression(&mut stream) {
             ast.push(expr);
+        } else {
+            break;
         }
     }
 
@@ -31,105 +22,90 @@ pub fn parse(filename: &str) {
     }
 }
 
-fn parse_token(token: Token, tokens: &mut TokenStream) -> Option<Expression> {
+fn expression(tokens: &mut TokenStream) -> Option<Expression> {
+    addition(tokens)
+}
+
+fn to_operator(token: Token) -> Operator {
     match token {
-        Token::String(literal) => get_string_literal_expression(literal),
-        Token::Number(_, number) => get_numeric_expression(number, tokens),
-        Token::LeftParen => get_group_expression(tokens),
-        Token::Bang => get_unary_expression(Unary::Bang, tokens),
-        Token::Minus => get_unary_expression(Unary::Minus, tokens),
-        Token::False => Some(Expression::Literal(Literal::False)),
-        Token::True => Some(Expression::Literal(Literal::True)),
-        _ => get_string_literal_expression(token.literal().to_string()),
+        Token::Star => Operator::Star,
+        Token::Division => Operator::Division,
+        Token::Minus => Operator::Minus,
+        Token::Plus => Operator::Plus,
+        _ => panic!("Expected binary operator, got {:?}", token),
     }
 }
 
-fn get_group_expression(tokens: &mut TokenStream) -> Option<Expression> {
-    let mut expression: Option<Expression> = None;
-
-    while let Some(next) = tokens.next() {
-        match next {
-            Token::RightParen => {
-                if let Some(expr) = expression {
-                    return Some(Expression::Grouping(Box::new(expr)));
-                }
-            }
-            token => expression = parse_token(token, tokens),
-        }
+fn to_unary(token: Token) -> Unary {
+    match token {
+        Token::Bang => Unary::Bang,
+        Token::Minus => Unary::Minus,
+        _ => panic!("Expected unary operator, got {:?}", token),
     }
-
-    if let Some(expr) = expression {
-        return Some(Expression::Grouping(Box::new(expr)));
-    }
-
-    None
 }
 
-fn get_numeric_expression(literal: String, tokens: &mut TokenStream) -> Option<Expression> {
-    let mut expressions = VecDeque::from([Expression::Literal(Literal::Number(literal))]);
-    let mut operators: VecDeque<Operator> = VecDeque::new();
+fn addition(tokens: &mut TokenStream) -> Option<Expression> {
+    let mut expr = multiplication(tokens)?;
 
-    while let Some(next) = tokens.next() {
-        match next {
-            Token::Number(_, literal) => {
-                expressions.push_back(Expression::Literal(Literal::Number(literal.to_string())));
-            }
-            Token::Minus => match get_unary_expression(Unary::Minus, tokens) {
-                Some(expr) => {
-                    expressions.push_back(expr);
-                }
-                None => {
-                    return None;
-                }
-            },
-            Token::Plus => operators.push_back(Operator::Plus),
-            Token::Star => operators.push_back(Operator::Star),
-            Token::Division => operators.push_back(Operator::Division),
-            Token::LeftParen => match get_group_expression(tokens) {
-                Some(expr) => {
-                    expressions.push_back(expr);
-                }
-                None => {
-                    return None;
-                }
-            },
-            _ => {
-                return expressions.pop_front();
-            }
-        }
+    while tokens.peek_is(&Token::Plus) || tokens.peek_is(&Token::Minus) {
+        let operator_token = tokens.advance().unwrap();
+        let op = to_operator(operator_token);
+        let right = multiplication(tokens)?;
 
-        if expressions.len() > 1 && !operators.is_empty() {
-            let expr1 = expressions.pop_front().unwrap();
-            let expr2 = expressions.pop_front().unwrap();
-            let op = operators.pop_front().unwrap();
-            expressions.push_back(Expression::Binary(Box::new(expr1), op, Box::new(expr2)))
-        }
+        expr = Expression::Binary(Box::new(expr), op, Box::new(right));
     }
 
-    expressions.pop_front()
+    Some(expr)
 }
 
-fn get_string_literal_expression(literal: String) -> Option<Expression> {
-    Some(Expression::Literal(Literal::String(literal)))
+fn multiplication(tokens: &mut TokenStream) -> Option<Expression> {
+    let mut expr = unary(tokens)?;
+
+    while tokens.peek_is(&Token::Star) || tokens.peek_is(&Token::Division) {
+        let operator_token = tokens.advance().unwrap();
+        let op = to_operator(operator_token);
+
+        let right = unary(tokens)?;
+        expr = Expression::Binary(Box::new(expr), op, Box::new(right));
+    }
+
+    Some(expr)
 }
 
-fn get_unary_expression(unary: Unary, tokens: &mut TokenStream) -> Option<Expression> {
-    let expression = match tokens.next() {
-        Some(Token::True) => Expression::Unary(unary, Box::new(Expression::Literal(Literal::True))),
-        Some(Token::False) => {
-            Expression::Unary(unary, Box::new(Expression::Literal(Literal::False)))
-        }
-        Some(Token::Number(_, literal)) => Expression::Unary(
-            unary,
-            Box::new(Expression::Literal(Literal::Number(literal))),
-        ),
-        Some(token) => {
-            if let Some(expr) = parse_token(token, tokens) {
-                return Some(Expression::Unary(unary, Box::new(expr)));
+fn unary(tokens: &mut TokenStream) -> Option<Expression> {
+    if tokens.peek_is(&Token::Bang) || tokens.peek_is(&Token::Minus) {
+        let operator_token = tokens.advance().unwrap();
+        let unary_op = to_unary(operator_token);
+
+        let right_operand = unary(tokens)?;
+
+        Some(Expression::Unary(unary_op, Box::new(right_operand)))
+    } else {
+        primary(tokens)
+    }
+}
+
+fn primary(tokens: &mut TokenStream) -> Option<Expression> {
+    let token = tokens.advance()?;
+
+    match token {
+        Token::False => Some(Expression::Primary(Primary::False)),
+        Token::True => Some(Expression::Primary(Primary::True)),
+        Token::Nil => Some(Expression::Primary(Primary::Nil)),
+        Token::Number(_, literal) => Some(Expression::Primary(Primary::Number(literal))),
+        Token::String(literal) => Some(Expression::Primary(Primary::String(literal))),
+
+        Token::LeftParen => {
+            let expr_inside = expression(tokens)?;
+            if tokens.match_advance(&Token::RightParen) {
+                Some(Expression::Primary(Primary::Grouping(Box::new(
+                    expr_inside,
+                ))))
+            } else {
+                None
             }
-            return None;
         }
-        _ => return None,
-    };
-    Some(expression)
+
+        _ => None,
+    }
 }

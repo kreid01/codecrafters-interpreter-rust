@@ -1,5 +1,4 @@
 use std::env;
-use std::io::stdin;
 
 use crate::parser::parse;
 use crate::tokenizer::{print_tokens, tokenize};
@@ -21,7 +20,7 @@ fn main() {
     // println!("{}", input);
     //
     // parse(&input);
-    //
+
     let args: Vec<String> = env::args().collect();
     if args.len() < 3 {
         eprintln!("Usage: {} tokenize <filename>", args[0]);

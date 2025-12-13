@@ -2,50 +2,46 @@ use std::fmt::{self, Display};
 
 #[derive(Debug)]
 pub enum Expression {
-    Literal(Literal),
-    Grouping(Box<Expression>),
-    Unary(Unary, Box<Expression>),
     Binary(Box<Expression>, Operator, Box<Expression>),
-    Operator(Operator),
+    Unary(Unary, Box<Expression>),
+    Primary(Primary),
 }
 
 impl Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Expression::Literal(literal) => {
+            Expression::Primary(literal) => {
                 write!(f, "{}", literal)
             }
-            Expression::Grouping(expr) => write!(f, "(group {})", expr),
             Expression::Unary(unary, expr) => {
                 write!(f, "({} {})", unary, expr)
             }
             Expression::Binary(left, op, right) => {
                 write!(f, "({} {} {})", op, left, right)
             }
-            Expression::Operator(operator) => {
-                write!(f, "{}", operator)
-            }
         }
     }
 }
 
 #[derive(Debug)]
-pub enum Literal {
+pub enum Primary {
     Number(String),
     String(String),
     True,
     False,
     Nil,
+    Grouping(Box<Expression>),
 }
 
-impl Display for Literal {
+impl Display for Primary {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> fmt::Result {
         let literal = match self {
-            Literal::Number(literal) => literal,
-            Literal::String(literal) => literal,
-            Literal::True => "true",
-            Literal::False => "false",
-            Literal::Nil => "Nil",
+            Primary::Number(literal) => literal.to_string(),
+            Primary::String(literal) => literal.to_string(),
+            Primary::True => "true".to_string(),
+            Primary::False => "false".to_string(),
+            Primary::Nil => "nil".to_string(),
+            Primary::Grouping(expr) => format!("(group {})", expr),
         };
 
         write!(fmt, "{}", literal)
