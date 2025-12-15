@@ -23,7 +23,21 @@ pub fn parse(filename: &str) {
 }
 
 fn expression(tokens: &mut TokenStream) -> Option<Expression> {
-    comparison(tokens)
+    equality(tokens)
+}
+
+fn equality(tokens: &mut TokenStream) -> Option<Expression> {
+    let mut expr = comparison(tokens)?;
+
+    while tokens.peek_is(&Token::EqualEqual) || tokens.peek_is(&Token::BangEqual) {
+        let operator_token = tokens.advance().unwrap();
+        let op = to_equality(operator_token);
+        let right = comparison(tokens)?;
+
+        expr = Expression::Binary(Box::new(expr), op, Box::new(right));
+    }
+
+    Some(expr)
 }
 
 fn comparison(tokens: &mut TokenStream) -> Option<Expression> {
@@ -107,6 +121,14 @@ fn primary(tokens: &mut TokenStream) -> Option<Expression> {
         }
 
         _ => None,
+    }
+}
+
+fn to_equality(token: Token) -> Operator {
+    match token {
+        Token::EqualEqual => Operator::EqualEqual,
+        Token::BangEqual => Operator::BangEqual,
+        _ => panic!("Expected binary operator, got {:?}", token),
     }
 }
 

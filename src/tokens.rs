@@ -158,21 +158,7 @@ impl Display for Token {
 
 impl Token {
     pub fn variant_matches(&self, other: &Token) -> bool {
-        matches!(
-            (self, other),
-            (&Token::Plus, &Token::Plus)
-                | (&Token::Minus, &Token::Minus)
-                | (&Token::LessEqual, &Token::LessEqual)
-                | (&Token::Less, &Token::Less)
-                | (&Token::GreaterEqual, &Token::GreaterEqual)
-                | (&Token::Greater, &Token::Greater)
-                | (&Token::Star, &Token::Star)
-                | (&Token::Division, &Token::Division)
-                | (&Token::Bang, &Token::Bang)
-                | (&Token::RightParen, &Token::RightParen)
-                | (&Token::Number(_, _), &Token::Number(_, _))
-                | (&Token::String(_), &Token::String(_))
-        )
+        self == other
     }
 }
 
