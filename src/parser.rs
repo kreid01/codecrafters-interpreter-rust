@@ -23,25 +23,25 @@ pub fn parse(filename: &str) {
 }
 
 fn expression(tokens: &mut TokenStream) -> Option<Expression> {
-    addition(tokens)
+    comparison(tokens)
 }
 
-fn to_operator(token: Token) -> Operator {
-    match token {
-        Token::Star => Operator::Star,
-        Token::Division => Operator::Division,
-        Token::Minus => Operator::Minus,
-        Token::Plus => Operator::Plus,
-        _ => panic!("Expected binary operator, got {:?}", token),
-    }
-}
+fn comparison(tokens: &mut TokenStream) -> Option<Expression> {
+    let mut expr = addition(tokens)?;
 
-fn to_unary(token: Token) -> Unary {
-    match token {
-        Token::Bang => Unary::Bang,
-        Token::Minus => Unary::Minus,
-        _ => panic!("Expected unary operator, got {:?}", token),
+    while tokens.peek_is(&Token::Less)
+        || tokens.peek_is(&Token::LessEqual)
+        || tokens.peek_is(&Token::Greater)
+        || tokens.peek_is(&Token::GreaterEqual)
+    {
+        let operator_token = tokens.advance().unwrap();
+        let op = to_comparison(operator_token);
+        let right = addition(tokens)?;
+
+        expr = Expression::Binary(Box::new(expr), op, Box::new(right));
     }
+
+    Some(expr)
 }
 
 fn addition(tokens: &mut TokenStream) -> Option<Expression> {
@@ -64,8 +64,8 @@ fn multiplication(tokens: &mut TokenStream) -> Option<Expression> {
     while tokens.peek_is(&Token::Star) || tokens.peek_is(&Token::Division) {
         let operator_token = tokens.advance().unwrap();
         let op = to_operator(operator_token);
-
         let right = unary(tokens)?;
+
         expr = Expression::Binary(Box::new(expr), op, Box::new(right));
     }
 
@@ -107,5 +107,33 @@ fn primary(tokens: &mut TokenStream) -> Option<Expression> {
         }
 
         _ => None,
+    }
+}
+
+fn to_operator(token: Token) -> Operator {
+    match token {
+        Token::Star => Operator::Star,
+        Token::Division => Operator::Division,
+        Token::Minus => Operator::Minus,
+        Token::Plus => Operator::Plus,
+        _ => panic!("Expected binary operator, got {:?}", token),
+    }
+}
+
+fn to_unary(token: Token) -> Unary {
+    match token {
+        Token::Bang => Unary::Bang,
+        Token::Minus => Unary::Minus,
+        _ => panic!("Expected unary operator, got {:?}", token),
+    }
+}
+
+fn to_comparison(token: Token) -> Operator {
+    match token {
+        Token::Less => Operator::Less,
+        Token::LessEqual => Operator::LessEqual,
+        Token::Greater => Operator::Greater,
+        Token::GreaterEqual => Operator::GreaterEqual,
+        _ => panic!("Expected comparison operator, got {:?}", token),
     }
 }

@@ -131,7 +131,7 @@ impl Display for Token {
             Self::Error(char, line) => {
                 format!("[line {}] Error: Unexpected character: {}", &line, &char)
             }
-            Self::ErrorString(char, line) => {
+            Self::ErrorString(_, line) => {
                 format!("[line {}] Error: Unterminated string.", &line)
             }
             Self::And => format!("{} {} null", "AND", "and"),
@@ -158,17 +158,21 @@ impl Display for Token {
 
 impl Token {
     pub fn variant_matches(&self, other: &Token) -> bool {
-        match (self, other) {
-            (Token::Plus, Token::Plus) => true,
-            (Token::Minus, Token::Minus) => true,
-            (Token::Number(_, _), Token::Number(_, _)) => true,
-            (Token::String(_), Token::String(_)) => true,
-            (Token::Star, Token::Star) => true,
-            (Token::Division, Token::Division) => true,
-            (Token::Bang, Token::Bang) => true,
-            (Token::RightParen, Token::RightParen) => true,
-            _ => false,
-        }
+        matches!(
+            (self, other),
+            (&Token::Plus, &Token::Plus)
+                | (&Token::Minus, &Token::Minus)
+                | (&Token::LessEqual, &Token::LessEqual)
+                | (&Token::Less, &Token::Less)
+                | (&Token::GreaterEqual, &Token::GreaterEqual)
+                | (&Token::Greater, &Token::Greater)
+                | (&Token::Star, &Token::Star)
+                | (&Token::Division, &Token::Division)
+                | (&Token::Bang, &Token::Bang)
+                | (&Token::RightParen, &Token::RightParen)
+                | (&Token::Number(_, _), &Token::Number(_, _))
+                | (&Token::String(_), &Token::String(_))
+        )
     }
 }
 

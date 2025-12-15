@@ -89,7 +89,7 @@ impl Display for Operator {
             Operator::Less => "<",
             Operator::LessEqual => "<=",
             Operator::Greater => ">",
-            Operator::GreaterEqual => "<=",
+            Operator::GreaterEqual => ">=",
             Operator::Division => "/",
             Operator::Star => "*",
             Operator::Plus => "+",
