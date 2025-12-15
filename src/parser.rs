@@ -2,19 +2,40 @@ use crate::expression::{Expression, Operator, Primary, Unary};
 use crate::tokenizer::tokenize;
 use crate::tokens::{Token, TokenStream};
 use std::collections::VecDeque;
+use std::process;
 
 pub fn parse(filename: &str) {
-    let (tokens, _) = tokenize(filename);
+    let (tokens, errors) = tokenize(filename);
     let mut ast: Vec<Expression> = Vec::new();
     let tokens: VecDeque<Token> = tokens.into();
     let mut stream = TokenStream { tokens };
 
-    while !stream.is_at_end() {
-        if let Some(expr) = expression(&mut stream) {
-            ast.push(expr);
-        } else {
-            break;
+    if !errors.is_empty() {
+        for error in errors {
+            eprintln!("{}", error);
         }
+
+        process::exit(65)
+    }
+
+    let mut errors: Vec<String> = Vec::new();
+
+    while !stream.is_at_end() {
+        match expression(&mut stream) {
+            Ok(leaf) => ast.push(leaf),
+            Err(err) => {
+                errors.push(err);
+                break;
+            }
+        }
+    }
+
+    if !errors.is_empty() {
+        for error in errors {
+            eprintln!("{}", error);
+        }
+
+        process::exit(65)
     }
 
     for syntax in &ast {
@@ -22,11 +43,11 @@ pub fn parse(filename: &str) {
     }
 }
 
-fn expression(tokens: &mut TokenStream) -> Option<Expression> {
+fn expression(tokens: &mut TokenStream) -> Result<Expression, String> {
     equality(tokens)
 }
 
-fn equality(tokens: &mut TokenStream) -> Option<Expression> {
+fn equality(tokens: &mut TokenStream) -> Result<Expression, String> {
     let mut expr = comparison(tokens)?;
 
     while tokens.peek_is(&Token::EqualEqual) || tokens.peek_is(&Token::BangEqual) {
@@ -37,10 +58,10 @@ fn equality(tokens: &mut TokenStream) -> Option<Expression> {
         expr = Expression::Binary(Box::new(expr), op, Box::new(right));
     }
 
-    Some(expr)
+    Ok(expr)
 }
 
-fn comparison(tokens: &mut TokenStream) -> Option<Expression> {
+fn comparison(tokens: &mut TokenStream) -> Result<Expression, String> {
     let mut expr = addition(tokens)?;
 
     while tokens.peek_is(&Token::Less)
@@ -55,10 +76,10 @@ fn comparison(tokens: &mut TokenStream) -> Option<Expression> {
         expr = Expression::Binary(Box::new(expr), op, Box::new(right));
     }
 
-    Some(expr)
+    Ok(expr)
 }
 
-fn addition(tokens: &mut TokenStream) -> Option<Expression> {
+fn addition(tokens: &mut TokenStream) -> Result<Expression, String> {
     let mut expr = multiplication(tokens)?;
 
     while tokens.peek_is(&Token::Plus) || tokens.peek_is(&Token::Minus) {
@@ -69,10 +90,10 @@ fn addition(tokens: &mut TokenStream) -> Option<Expression> {
         expr = Expression::Binary(Box::new(expr), op, Box::new(right));
     }
 
-    Some(expr)
+    Ok(expr)
 }
 
-fn multiplication(tokens: &mut TokenStream) -> Option<Expression> {
+fn multiplication(tokens: &mut TokenStream) -> Result<Expression, String> {
     let mut expr = unary(tokens)?;
 
     while tokens.peek_is(&Token::Star) || tokens.peek_is(&Token::Division) {
@@ -83,44 +104,50 @@ fn multiplication(tokens: &mut TokenStream) -> Option<Expression> {
         expr = Expression::Binary(Box::new(expr), op, Box::new(right));
     }
 
-    Some(expr)
+    Ok(expr)
 }
 
-fn unary(tokens: &mut TokenStream) -> Option<Expression> {
+fn unary(tokens: &mut TokenStream) -> Result<Expression, String> {
     if tokens.peek_is(&Token::Bang) || tokens.peek_is(&Token::Minus) {
         let operator_token = tokens.advance().unwrap();
         let unary_op = to_unary(operator_token);
 
         let right_operand = unary(tokens)?;
 
-        Some(Expression::Unary(unary_op, Box::new(right_operand)))
+        Ok(Expression::Unary(unary_op, Box::new(right_operand)))
     } else {
         primary(tokens)
     }
 }
 
-fn primary(tokens: &mut TokenStream) -> Option<Expression> {
-    let token = tokens.advance()?;
+fn primary(tokens: &mut TokenStream) -> Result<Expression, String> {
+    let token = match tokens.advance() {
+        Some(token) => token,
+        None => {
+            return Err("Error - end of token stream".to_string());
+        }
+    };
 
     match token {
-        Token::False => Some(Expression::Primary(Primary::False)),
-        Token::True => Some(Expression::Primary(Primary::True)),
-        Token::Nil => Some(Expression::Primary(Primary::Nil)),
-        Token::Number(_, literal) => Some(Expression::Primary(Primary::Number(literal))),
-        Token::String(literal) => Some(Expression::Primary(Primary::String(literal))),
+        Token::False => Ok(Expression::Primary(Primary::False)),
+        Token::True => Ok(Expression::Primary(Primary::True)),
+        Token::Nil => Ok(Expression::Primary(Primary::Nil)),
+        Token::Number(_, literal) => Ok(Expression::Primary(Primary::Number(literal))),
+        Token::String(literal) => Ok(Expression::Primary(Primary::String(literal))),
 
         Token::LeftParen => {
             let expr_inside = expression(tokens)?;
             if tokens.match_advance(&Token::RightParen) {
-                Some(Expression::Primary(Primary::Grouping(Box::new(
+                Ok(Expression::Primary(Primary::Grouping(Box::new(
                     expr_inside,
                 ))))
             } else {
-                None
+                let error = format!("[line 1] Error at '{}': Expect expression.", token);
+                Err(error)
             }
         }
 
-        _ => None,
+        _ => Err("Error -  unexpected token".to_string()),
     }
 }
 
