@@ -1,3 +1,4 @@
+use core::panic;
 use std::collections::VecDeque;
 
 use crate::expression::{Expression, Operator, Primary, Unary};
@@ -24,7 +25,7 @@ fn evaluate_expression(expression: Expression, stream: &mut ExpressionStream) ->
     match expression {
         Expression::Primary(literal) => primary(literal, stream),
         Expression::Unary(operator, expression) => unary(operator, *expression, stream),
-        // Expression::Binary(left, operator, right) => binary(*left, operator, *right),
+        Expression::Binary(left, operator, right) => binary(*left, operator, *right, stream),
         _ => panic!("Not implemented"),
     }
 }
@@ -66,8 +67,30 @@ fn check_bang(expression: String, stream: &mut ExpressionStream) -> String {
     }
 }
 
-fn binary(left: Expression, operator: Operator, right: Expression) -> Result<String, String> {
-    Ok("win".to_string())
+fn binary(
+    left: Expression,
+    operator: Operator,
+    right: Expression,
+    stream: &mut ExpressionStream,
+) -> String {
+    let left = evaluate_expression(left, stream);
+    let right = evaluate_expression(right, stream);
+
+    let left = left.parse::<f64>().unwrap_or(0.0);
+    let right = right.parse::<f64>().unwrap_or(0.0);
+
+    arithmetic(left, operator, right)
+}
+
+fn arithmetic(left: f64, operator: Operator, right: f64) -> String {
+    match operator {
+        Operator::Plus => left + right,
+        Operator::Minus => left - right,
+        Operator::Star => left * right,
+        Operator::Division => left / right,
+        _ => panic!("Not implemented operator"),
+    }
+    .to_string()
 }
 
 impl Expression {
