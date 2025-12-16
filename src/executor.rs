@@ -11,12 +11,7 @@ pub fn execute(filename: &str) {
     let mut output: Vec<String> = Vec::new();
 
     while let Some(expression) = stream.advance() {
-        let result = match expression {
-            Expression::Primary(literal) => primary(literal),
-            // Expression::Binary(left, operator, right) => binary(*left, operator, *right),
-            _ => panic!("Not implemented"),
-        };
-
+        let result = evaluate_expression(expression);
         output.push(result);
     }
 
@@ -25,9 +20,19 @@ pub fn execute(filename: &str) {
     }
 }
 
+fn evaluate_expression(expression: Expression) -> String {
+    match expression {
+        Expression::Primary(literal) => primary(literal),
+        // Expression::Binary(left, operator, right) => binary(*left, operator, *right),
+        _ => panic!("Not implemented"),
+    }
+}
+
 fn primary(literal: Primary) -> String {
     match literal {
         Primary::Number(_, number, _) => number.to_string(),
+        Primary::String(string, _) => string.to_string(),
+        Primary::Grouping(expression) => evaluate_expression(*expression),
         _ => literal.to_string(),
     }
 }
