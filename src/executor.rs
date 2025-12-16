@@ -12,7 +12,7 @@ pub fn execute(filename: &str) {
 
     while let Some(expression) = stream.advance() {
         let result = match expression {
-            Expression::Primary(expression) => expression.to_string(),
+            Expression::Primary(literal) => primary(literal),
             // Expression::Binary(left, operator, right) => binary(*left, operator, *right),
             _ => panic!("Not implemented"),
         };
@@ -22,6 +22,13 @@ pub fn execute(filename: &str) {
 
     for s in output {
         println!("{}", s);
+    }
+}
+
+fn primary(literal: Primary) -> String {
+    match literal {
+        Primary::Number(_, number, _) => number.to_string(),
+        _ => literal.to_string(),
     }
 }
 

@@ -117,8 +117,9 @@ fn primary(tokens: &mut TokenStream) -> Result<Expression, Expression> {
         Token::False => Ok(Expression::Primary(Primary::False(token))),
         Token::True => Ok(Expression::Primary(Primary::True(token))),
         Token::Nil => Ok(Expression::Primary(Primary::Nil(token))),
-        Token::Number(_, ref literal) => Ok(Expression::Primary(Primary::Number(
+        Token::Number(ref number, ref literal) => Ok(Expression::Primary(Primary::Number(
             literal.to_string(),
+            number.to_string(),
             token,
         ))),
         Token::String(ref literal) => Ok(Expression::Primary(Primary::String(

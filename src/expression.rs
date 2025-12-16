@@ -35,7 +35,7 @@ impl Display for Expression {
 
 #[derive(Debug, PartialEq)]
 pub enum Primary {
-    Number(String, Token),
+    Number(String, String, Token),
     String(String, Token),
     True(Token),
     False(Token),
@@ -46,7 +46,7 @@ pub enum Primary {
 impl Display for Primary {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> fmt::Result {
         let literal = match self {
-            Primary::Number(literal, _) => literal.to_string(),
+            Primary::Number(literal, _, _) => literal.to_string(),
             Primary::String(literal, _) => literal.to_string(),
             Primary::True(_) => "true".to_string(),
             Primary::False(_) => "false".to_string(),
