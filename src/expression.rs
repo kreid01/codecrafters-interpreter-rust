@@ -1,10 +1,13 @@
 use std::fmt::{self, Display};
 
-#[derive(Debug)]
+use crate::tokens::Token;
+
+#[derive(Debug, PartialEq)]
 pub enum Expression {
     Binary(Box<Expression>, Operator, Box<Expression>),
     Unary(Unary, Box<Expression>),
     Primary(Primary),
+    ParserError(usize, Token),
 }
 
 impl Display for Expression {
@@ -19,28 +22,35 @@ impl Display for Expression {
             Expression::Binary(left, op, right) => {
                 write!(f, "({} {} {})", op, left, right)
             }
+            Expression::ParserError(usize, token) => {
+                write!(
+                    f,
+                    "[line {}] Error at '{}': Expect expression.",
+                    usize, token
+                )
+            }
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Primary {
-    Number(String),
-    String(String),
-    True,
-    False,
-    Nil,
+    Number(String, Token),
+    String(String, Token),
+    True(Token),
+    False(Token),
+    Nil(Token),
     Grouping(Box<Expression>),
 }
 
 impl Display for Primary {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> fmt::Result {
         let literal = match self {
-            Primary::Number(literal) => literal.to_string(),
-            Primary::String(literal) => literal.to_string(),
-            Primary::True => "true".to_string(),
-            Primary::False => "false".to_string(),
-            Primary::Nil => "nil".to_string(),
+            Primary::Number(literal, _) => literal.to_string(),
+            Primary::String(literal, _) => literal.to_string(),
+            Primary::True(_) => "true".to_string(),
+            Primary::False(_) => "false".to_string(),
+            Primary::Nil(_) => "nil".to_string(),
             Primary::Grouping(expr) => format!("(group {})", expr),
         };
 
@@ -48,7 +58,7 @@ impl Display for Primary {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Unary {
     Minus,
     Bang,
@@ -65,7 +75,7 @@ impl Display for Unary {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Operator {
     Equal,
     EqualEqual,

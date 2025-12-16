@@ -1,5 +1,3 @@
-use std::process;
-
 use crate::tokens::{KEYWORD_MAP, Token};
 use crate::utils::get_file_contents;
 
@@ -62,24 +60,6 @@ pub fn tokenize(filename: &str) -> (Vec<Token>, Vec<Token>) {
     }
 
     (output, errors)
-}
-
-pub fn print_tokens(output: Vec<Token>, errors: Vec<Token>) {
-    let has_errors = !errors.is_empty();
-
-    for token in errors {
-        eprintln!("{}", token);
-    }
-
-    for token in output {
-        println!("{}", token);
-    }
-
-    println!("EOF  null");
-
-    if has_errors {
-        process::exit(65)
-    }
 }
 
 fn get_identifier(

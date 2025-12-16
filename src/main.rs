@@ -1,15 +1,17 @@
 use std::env;
 
+use crate::executor::execute;
 use crate::parser::parse;
-use crate::tokenizer::{print_tokens, tokenize};
+use crate::tokenizer::tokenize;
+use crate::utils::{print_parser_output, print_tokenizer_output};
 
+mod executor;
 mod expression;
 mod parser;
 mod tokenizer;
 mod tokens;
 mod utils;
 
-// USE
 // mem & boxing
 // no unwraps
 
@@ -19,7 +21,6 @@ fn main() {
     // stdin.read_line(&mut input).unwrap();
     // println!("{}", input);
     //
-    // parse(&input);
 
     let args: Vec<String> = env::args().collect();
     if args.len() < 3 {
@@ -31,10 +32,14 @@ fn main() {
 
     match command.as_str() {
         "tokenize" => {
-            let (output, errors) = tokenize(filename);
-            print_tokens(output, errors);
+            let (tokens, errors) = tokenize(filename);
+            print_tokenizer_output(tokens, errors);
         }
-        "parse" => parse(filename),
+        "parse" => {
+            let (ast, errors) = parse(filename);
+            print_parser_output(ast, errors);
+        }
+        "evaluate" => execute(filename),
         _ => {
             eprintln!("Unknown command: {}", command);
         }

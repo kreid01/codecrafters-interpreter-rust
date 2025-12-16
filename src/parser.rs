@@ -4,21 +4,12 @@ use crate::tokens::{Token, TokenStream};
 use std::collections::VecDeque;
 use std::process;
 
-pub fn parse(filename: &str) {
-    let (tokens, errors) = tokenize(filename);
+pub fn parse(filename: &str) -> (Vec<Expression>, Vec<Expression>) {
+    let (tokens, token_errors) = tokenize(filename);
     let mut ast: Vec<Expression> = Vec::new();
     let tokens: VecDeque<Token> = tokens.into();
     let mut stream = TokenStream { tokens };
-
-    if !errors.is_empty() {
-        for error in errors {
-            eprintln!("{}", error);
-        }
-
-        process::exit(65)
-    }
-
-    let mut errors: Vec<String> = Vec::new();
+    let mut errors: Vec<Expression> = Vec::new();
 
     while !stream.is_at_end() {
         match expression(&mut stream) {
@@ -30,24 +21,18 @@ pub fn parse(filename: &str) {
         }
     }
 
-    if !errors.is_empty() {
-        for error in errors {
-            eprintln!("{}", error);
-        }
-
+    if !token_errors.is_empty() {
         process::exit(65)
     }
 
-    for syntax in &ast {
-        println!("{}", syntax);
-    }
+    (ast, errors)
 }
 
-fn expression(tokens: &mut TokenStream) -> Result<Expression, String> {
+fn expression(tokens: &mut TokenStream) -> Result<Expression, Expression> {
     equality(tokens)
 }
 
-fn equality(tokens: &mut TokenStream) -> Result<Expression, String> {
+fn equality(tokens: &mut TokenStream) -> Result<Expression, Expression> {
     let mut expr = comparison(tokens)?;
 
     while tokens.peek_is(&Token::EqualEqual) || tokens.peek_is(&Token::BangEqual) {
@@ -61,7 +46,7 @@ fn equality(tokens: &mut TokenStream) -> Result<Expression, String> {
     Ok(expr)
 }
 
-fn comparison(tokens: &mut TokenStream) -> Result<Expression, String> {
+fn comparison(tokens: &mut TokenStream) -> Result<Expression, Expression> {
     let mut expr = addition(tokens)?;
 
     while tokens.peek_is(&Token::Less)
@@ -79,7 +64,7 @@ fn comparison(tokens: &mut TokenStream) -> Result<Expression, String> {
     Ok(expr)
 }
 
-fn addition(tokens: &mut TokenStream) -> Result<Expression, String> {
+fn addition(tokens: &mut TokenStream) -> Result<Expression, Expression> {
     let mut expr = multiplication(tokens)?;
 
     while tokens.peek_is(&Token::Plus) || tokens.peek_is(&Token::Minus) {
@@ -93,7 +78,7 @@ fn addition(tokens: &mut TokenStream) -> Result<Expression, String> {
     Ok(expr)
 }
 
-fn multiplication(tokens: &mut TokenStream) -> Result<Expression, String> {
+fn multiplication(tokens: &mut TokenStream) -> Result<Expression, Expression> {
     let mut expr = unary(tokens)?;
 
     while tokens.peek_is(&Token::Star) || tokens.peek_is(&Token::Division) {
@@ -107,7 +92,7 @@ fn multiplication(tokens: &mut TokenStream) -> Result<Expression, String> {
     Ok(expr)
 }
 
-fn unary(tokens: &mut TokenStream) -> Result<Expression, String> {
+fn unary(tokens: &mut TokenStream) -> Result<Expression, Expression> {
     if tokens.peek_is(&Token::Bang) || tokens.peek_is(&Token::Minus) {
         let operator_token = tokens.advance().unwrap();
         let unary_op = to_unary(operator_token);
@@ -120,20 +105,26 @@ fn unary(tokens: &mut TokenStream) -> Result<Expression, String> {
     }
 }
 
-fn primary(tokens: &mut TokenStream) -> Result<Expression, String> {
+fn primary(tokens: &mut TokenStream) -> Result<Expression, Expression> {
     let token = match tokens.advance() {
         Some(token) => token,
         None => {
-            return Err("Error - end of token stream".to_string());
+            panic!("End of token stream");
         }
     };
 
     match token {
-        Token::False => Ok(Expression::Primary(Primary::False)),
-        Token::True => Ok(Expression::Primary(Primary::True)),
-        Token::Nil => Ok(Expression::Primary(Primary::Nil)),
-        Token::Number(_, literal) => Ok(Expression::Primary(Primary::Number(literal))),
-        Token::String(literal) => Ok(Expression::Primary(Primary::String(literal))),
+        Token::False => Ok(Expression::Primary(Primary::False(token))),
+        Token::True => Ok(Expression::Primary(Primary::True(token))),
+        Token::Nil => Ok(Expression::Primary(Primary::Nil(token))),
+        Token::Number(_, ref literal) => Ok(Expression::Primary(Primary::Number(
+            literal.to_string(),
+            token,
+        ))),
+        Token::String(ref literal) => Ok(Expression::Primary(Primary::String(
+            literal.to_string(),
+            token,
+        ))),
 
         Token::LeftParen => {
             let expr_inside = expression(tokens)?;
@@ -142,12 +133,15 @@ fn primary(tokens: &mut TokenStream) -> Result<Expression, String> {
                     expr_inside,
                 ))))
             } else {
-                let error = format!("[line 1] Error at '{}': Expect expression.", token);
+                let error = Expression::ParserError(1, token);
                 Err(error)
             }
         }
 
-        _ => Err("Error -  unexpected token".to_string()),
+        _ => {
+            let error = Expression::ParserError(1, token);
+            Err(error)
+        }
     }
 }
 
