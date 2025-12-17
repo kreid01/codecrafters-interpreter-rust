@@ -78,11 +78,18 @@ fn binary(
 
     match get_numeric_expressions(&left, &right) {
         Some((left, right)) => arithmetic(left, operator, right),
-        None => format!("{}{}", left, right),
+        None => concat(left, operator, right),
     }
 }
 
-fn get_numeric_expressions(left: &String, right: &String) -> Option<(f64, f64)> {
+fn concat(left: String, operator: Operator, right: String) -> String {
+    match operator {
+        Operator::Plus => format!("{}{}", left, right),
+        _ => panic!("Unable to execute operator {} on strings", operator),
+    }
+}
+
+fn get_numeric_expressions(left: &str, right: &str) -> Option<(f64, f64)> {
     let left = match left.parse::<f64>() {
         Ok(left) => left,
         Err(_) => {
