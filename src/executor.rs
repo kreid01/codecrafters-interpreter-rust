@@ -76,10 +76,28 @@ fn binary(
     let left = evaluate_expression(left, stream);
     let right = evaluate_expression(right, stream);
 
-    let left = left.parse::<f64>().unwrap_or(0.0);
-    let right = right.parse::<f64>().unwrap_or(0.0);
+    match get_numeric_expressions(&left, &right) {
+        Some((left, right)) => arithmetic(left, operator, right),
+        None => format!("{}{}", left, right),
+    }
+}
 
-    arithmetic(left, operator, right)
+fn get_numeric_expressions(left: &String, right: &String) -> Option<(f64, f64)> {
+    let left = match left.parse::<f64>() {
+        Ok(left) => left,
+        Err(_) => {
+            return None;
+        }
+    };
+
+    let right = match right.parse::<f64>() {
+        Ok(right) => right,
+        Err(_) => {
+            return None;
+        }
+    };
+
+    Some((left, right))
 }
 
 fn arithmetic(left: f64, operator: Operator, right: f64) -> String {
