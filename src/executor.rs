@@ -76,6 +76,9 @@ fn binary(
     let left = evaluate_expression(left, stream);
     let right = evaluate_expression(right, stream);
 
+    let left = check_double_negative(left);
+    let right = check_double_negative(right);
+
     match get_numeric_expressions(&left, &right) {
         Some((left, right)) => arithmetic(left, operator, right),
         None => concat(left, operator, right),
@@ -107,15 +110,25 @@ fn get_numeric_expressions(left: &str, right: &str) -> Option<(f64, f64)> {
     Some((left, right))
 }
 
+fn check_double_negative(number: String) -> String {
+    match number.starts_with("--") {
+        true => number.replace("--", ""),
+        false => number,
+    }
+}
+
 fn arithmetic(left: f64, operator: Operator, right: f64) -> String {
     match operator {
-        Operator::Plus => left + right,
-        Operator::Minus => left - right,
-        Operator::Star => left * right,
-        Operator::Division => left / right,
+        Operator::Plus => (left + right).to_string(),
+        Operator::Minus => (left - right).to_string(),
+        Operator::Star => (left * right).to_string(),
+        Operator::Division => (left / right).to_string(),
+        Operator::Less => (left < right).to_string(),
+        Operator::LessEqual => (left <= right).to_string(),
+        Operator::Greater => (left > right).to_string(),
+        Operator::GreaterEqual => (left >= right).to_string(),
         _ => panic!("Not implemented operator"),
     }
-    .to_string()
 }
 
 impl Expression {

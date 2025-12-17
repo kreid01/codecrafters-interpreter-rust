@@ -1,4 +1,5 @@
 use std::env;
+use std::io::stdin;
 
 use crate::executor::execute;
 use crate::parser::parse;
@@ -21,6 +22,7 @@ fn main() {
     // stdin.read_line(&mut input).unwrap();
     // println!("{}", input);
     //
+    // execute(&input);
 
     let args: Vec<String> = env::args().collect();
     if args.len() < 3 {
