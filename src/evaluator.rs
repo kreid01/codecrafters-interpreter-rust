@@ -1,67 +1,43 @@
-use core::panic;
-use std::collections::VecDeque;
-use std::fmt::{self, Display, format};
-use std::process;
-
 use crate::enums::error::Error;
-use crate::enums::expression::{Expression, Operator, Primary, Unary};
-use crate::parser::parse;
+use crate::enums::expression::{Expression, ExpressionStream, Operator, Primary, Unary};
+use core::panic;
+
+use std::fmt::{self, Display};
 
 #[derive(PartialEq, Debug)]
-enum Statement {
+pub enum Value {
     String(String),
     Number(f64),
     Boolean(bool),
 }
 
-impl Display for Statement {
+impl Display for Value {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> fmt::Result {
         match self {
-            Statement::String(string) => write!(fmt, "{}", string),
-            Statement::Number(number) => write!(fmt, "{}", number),
-            Statement::Boolean(bool) => write!(fmt, "{}", bool),
+            Value::String(string) => write!(fmt, "{}", string),
+            Value::Number(number) => write!(fmt, "{}", number),
+            Value::Boolean(bool) => write!(fmt, "{}", bool),
         }
     }
 }
 
-pub fn evaluate(filename: &str) {
-    let (expressions, _) = parse(filename);
-    let expressions: VecDeque<Expression> = expressions.into();
+pub fn evaluate(expressions: Expression) -> Result<Value, Error> {
+    println!("{:?}", expressions);
     let mut stream = ExpressionStream { expressions };
 
-    let mut output: Vec<Statement> = Vec::new();
-    let mut errors: Vec<Error> = Vec::new();
-
-    while !stream.is_at_end() {
-        match evaluate_expression(stream.advance().expect("Tokens to exist"), &mut stream) {
-            Ok(result) => {
-                output.push(result);
-            }
-            Err(error) => {
-                errors.push(error);
-            }
+    match evaluate_expression(stream.advance().expect("Tokens to exist"), &mut stream) {
+        Ok(result) => Ok(result),
+        Err(error) => {
+            Err(error)
+            // process::exit(70);
         }
-    }
-
-    let has_errors = !errors.is_empty();
-
-    for error in errors {
-        eprintln!("{}", error)
-    }
-
-    if has_errors {
-        process::exit(70)
-    }
-
-    for s in output {
-        println!("{}", s);
     }
 }
 
 fn evaluate_expression(
     expression: Expression,
     stream: &mut ExpressionStream,
-) -> Result<Statement, Error> {
+) -> Result<Value, Error> {
     match expression {
         Expression::Primary(literal) => primary(literal, stream),
         Expression::Unary(operator, expression) => unary(operator, *expression, stream),
@@ -69,14 +45,14 @@ fn evaluate_expression(
     }
 }
 
-fn primary(primary: Primary, stream: &mut ExpressionStream) -> Result<Statement, Error> {
+fn primary(primary: Primary, stream: &mut ExpressionStream) -> Result<Value, Error> {
     match primary {
-        Primary::Number(number, _) => Ok(Statement::Number(number)),
-        Primary::String(string, _) => Ok(Statement::String(string)),
-        Primary::True(_) => Ok(Statement::Boolean(true)),
-        Primary::False(_) => Ok(Statement::Boolean(false)),
+        Primary::Number(number) => Ok(Value::Number(number)),
+        Primary::String(string) => Ok(Value::String(string)),
+        Primary::True => Ok(Value::Boolean(true)),
+        Primary::False => Ok(Value::Boolean(false)),
         Primary::Grouping(expression) => evaluate_expression(*expression, stream),
-        _ => Ok(Statement::String(primary.to_string())),
+        _ => Ok(Value::String(primary.to_string())),
     }
 }
 
@@ -84,7 +60,7 @@ fn unary(
     unary: Unary,
     expression: Expression,
     stream: &mut ExpressionStream,
-) -> Result<Statement, Error> {
+) -> Result<Value, Error> {
     let expression = evaluate_expression(expression, stream)?;
 
     match unary {
@@ -93,9 +69,9 @@ fn unary(
     }
 }
 
-fn minus(statement: Statement) -> Result<Statement, Error> {
+fn minus(statement: Value) -> Result<Value, Error> {
     match statement {
-        Statement::Number(number) => Ok(Statement::Number(-number)),
+        Value::Number(number) => Ok(Value::Number(-number)),
         _ => {
             let error = "Operand must be a number.".to_string();
             Err(Error::RuntimeError(1, error))
@@ -103,7 +79,7 @@ fn minus(statement: Statement) -> Result<Statement, Error> {
     }
 }
 
-fn check_bang(expression: Statement, stream: &mut ExpressionStream) -> Result<Statement, Error> {
+fn check_bang(expression: Value, stream: &mut ExpressionStream) -> Result<Value, Error> {
     let expression = match stream.peek() {
         Some(Expression::Unary(Unary::Bang, _)) => {
             stream.advance();
@@ -113,10 +89,10 @@ fn check_bang(expression: Statement, stream: &mut ExpressionStream) -> Result<St
     };
 
     let statement = match expression.to_string().as_str() {
-        "true" => Statement::Boolean(false),
-        "nil" => Statement::Boolean(true),
-        "false" => Statement::Boolean(true),
-        _ => Statement::Boolean(false),
+        "true" => Value::Boolean(false),
+        "nil" => Value::Boolean(true),
+        "false" => Value::Boolean(true),
+        _ => Value::Boolean(false),
     };
 
     Ok(statement)
@@ -127,7 +103,7 @@ fn binary(
     operator: Operator,
     right: Expression,
     stream: &mut ExpressionStream,
-) -> Result<Statement, Error> {
+) -> Result<Value, Error> {
     let left = evaluate_expression(left, stream)?;
     let right = evaluate_expression(right, stream)?;
 
@@ -140,97 +116,78 @@ fn binary(
     }
 }
 
-fn operations(left: Statement, operator: Operator, right: Statement) -> Result<Statement, Error> {
+fn operations(left: Value, operator: Operator, right: Value) -> Result<Value, Error> {
     match operator {
         Operator::Plus => plus(&left, &right),
-        Operator::BangEqual => Ok(Statement::Boolean(left.to_string() != right.to_string())),
-        Operator::EqualEqual => Ok(Statement::Boolean(equal(&left, &right))),
+        Operator::BangEqual => Ok(Value::Boolean(left.to_string() != right.to_string())),
+        Operator::EqualEqual => Ok(Value::Boolean(equal(&left, &right))),
         _ => {
-            let error = format!("Unable to execute operator {} on strings", operator);
+            let error = format!(
+                "Unable to execute operator {} on strings ors booleans",
+                operator
+            );
             Err(Error::RuntimeError(1, error))
         }
     }
 }
 
-fn plus(left: &Statement, right: &Statement) -> Result<Statement, Error> {
-    let statement = match (left, right) {
-        (Statement::String(left), Statement::String(right)) => format!("{}{}", left, right),
-        (Statement::Number(left), Statement::Number(right)) => format!("{}{}", left, right),
-        (Statement::Number(left), Statement::String(right)) => format!("{}{}", left, right),
-        _ => {
-            return Err(Error::RuntimeError(
-                1,
-                "Unable to operator + on mismatched mismatched types".to_string(),
-            ));
+fn plus(left: &Value, right: &Value) -> Result<Value, Error> {
+    match (left, right) {
+        (Value::String(left), Value::String(right)) => {
+            Ok(Value::String(format!("{}{}", left, right)))
         }
-    };
-
-    Ok(Statement::String(statement))
+        _ => Err(Error::RuntimeError(
+            1,
+            "Opperands must be 2 numbers or 2 strings".to_string(),
+        )),
+    }
 }
 
-fn equal(left: &Statement, right: &Statement) -> bool {
+fn equal(left: &Value, right: &Value) -> bool {
     match (left, right) {
-        (Statement::String(string1), Statement::String(string2)) => string1 == string2,
-        (Statement::Number(number1), Statement::Number(number2)) => number1 == number2,
-        (Statement::Boolean(bool1), Statement::Boolean(bool2)) => bool1 == bool2,
+        (Value::String(string1), Value::String(string2)) => string1 == string2,
+        (Value::Number(number1), Value::Number(number2)) => number1 == number2,
+        (Value::Boolean(bool1), Value::Boolean(bool2)) => bool1 == bool2,
         _ => false,
     }
 }
 
-fn get_numeric_expressions(left: &Statement, right: &Statement) -> Option<(f64, f64)> {
+fn get_numeric_expressions(left: &Value, right: &Value) -> Option<(f64, f64)> {
     let left = match left {
-        Statement::Number(number) => number,
+        Value::Number(number) => number,
         _ => return None,
     };
 
     let right = match right {
-        Statement::Number(number) => number,
+        Value::Number(number) => number,
         _ => return None,
     };
 
     Some((*left, *right))
 }
 
-fn check_double_negative(statement: Statement) -> Statement {
+fn check_double_negative(statement: Value) -> Value {
     match statement {
-        Statement::String(ref string) => match string.starts_with("--") {
-            true => Statement::String(string.replace("--", "")),
+        Value::String(ref string) => match string.starts_with("--") {
+            true => Value::String(string.replace("--", "")),
             false => statement,
         },
         _ => statement,
     }
 }
 
-fn arithmetic(left: f64, operator: Operator, right: f64) -> Result<Statement, Error> {
+fn arithmetic(left: f64, operator: Operator, right: f64) -> Result<Value, Error> {
     match operator {
-        Operator::Plus => Ok(Statement::Number(left + right)),
-        Operator::Minus => Ok(Statement::Number(left - right)),
-        Operator::Star => Ok(Statement::Number(left * right)),
-        Operator::Division => Ok(Statement::Number(left / right)),
-        Operator::Less => Ok(Statement::Boolean(left < right)),
-        Operator::LessEqual => Ok(Statement::Boolean(left <= right)),
-        Operator::Greater => Ok(Statement::Boolean(left > right)),
-        Operator::GreaterEqual => Ok(Statement::Boolean(left >= right)),
-        Operator::EqualEqual => Ok(Statement::Boolean(left == right)),
-        Operator::BangEqual => Ok(Statement::Boolean(left != right)),
+        Operator::Plus => Ok(Value::Number(left + right)),
+        Operator::Minus => Ok(Value::Number(left - right)),
+        Operator::Star => Ok(Value::Number(left * right)),
+        Operator::Division => Ok(Value::Number(left / right)),
+        Operator::Less => Ok(Value::Boolean(left < right)),
+        Operator::LessEqual => Ok(Value::Boolean(left <= right)),
+        Operator::Greater => Ok(Value::Boolean(left > right)),
+        Operator::GreaterEqual => Ok(Value::Boolean(left >= right)),
+        Operator::EqualEqual => Ok(Value::Boolean(left == right)),
+        Operator::BangEqual => Ok(Value::Boolean(left != right)),
         _ => panic!("Not implemented operator"),
-    }
-}
-
-pub struct ExpressionStream {
-    pub expressions: VecDeque<Expression>,
-}
-
-impl ExpressionStream {
-    pub fn peek(&self) -> Option<&Expression> {
-        self.expressions.front()
-    }
-
-    pub fn advance(&mut self) -> Option<Expression> {
-        self.expressions.pop_front()
-    }
-
-    pub fn is_at_end(&self) -> bool {
-        self.expressions.is_empty()
     }
 }

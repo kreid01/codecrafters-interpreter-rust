@@ -3,12 +3,14 @@ use std::io::stdin;
 
 use crate::evaluator::evaluate;
 use crate::parser::parse;
+use crate::run::run;
 use crate::tokenizer::tokenize;
-use crate::utils::{print_parser_output, print_tokenizer_output};
+use crate::utils::{print_output, print_tokenizer_output};
 
 pub mod enums;
 mod evaluator;
 mod parser;
+mod run;
 mod tokenizer;
 mod utils;
 
@@ -38,9 +40,14 @@ fn main() {
         }
         "parse" => {
             let (ast, errors) = parse(filename);
-            print_parser_output(ast, errors);
+            print_output(ast.iter().map(|x| x.to_string()).collect(), errors, 65);
         }
-        "evaluate" => evaluate(filename),
+        "evaluate" => {
+            // let (statements, _) = parse(filename);
+            // let (output, errors) = evaluate(statements);
+            // print_output(output.iter().map(|x| x.to_string()).collect(), errors, 65);
+        }
+        "run" => run(filename),
         _ => {
             eprintln!("Unknown command: {}", command);
         }

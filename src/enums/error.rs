@@ -1,9 +1,7 @@
 use std::fmt::{self, Display};
 
-use crate::enums::token::Token;
-
 pub enum Error {
-    ParseError(usize, Token),
+    ParseError(usize, String),
     RuntimeError(usize, String),
 }
 

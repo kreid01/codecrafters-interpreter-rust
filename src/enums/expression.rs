@@ -1,6 +1,6 @@
 use std::fmt::{self, Display};
 
-use crate::enums::token::{Token, format_number};
+use crate::enums::token::format_number;
 
 #[derive(Debug, PartialEq)]
 pub enum Expression {
@@ -27,22 +27,22 @@ impl Display for Expression {
 
 #[derive(Debug, PartialEq)]
 pub enum Primary {
-    Number(f64, Token),
-    String(String, Token),
-    True(Token),
-    False(Token),
-    Nil(Token),
+    Number(f64),
+    String(String),
+    True,
+    False,
+    Nil,
     Grouping(Box<Expression>),
 }
 
 impl Display for Primary {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> fmt::Result {
         let literal = match self {
-            Primary::Number(number, _) => format_number(number),
-            Primary::String(literal, _) => literal.to_string(),
-            Primary::True(_) => "true".to_string(),
-            Primary::False(_) => "false".to_string(),
-            Primary::Nil(_) => "nil".to_string(),
+            Primary::Number(number) => format_number(number),
+            Primary::String(literal) => literal.to_string(),
+            Primary::True => "true".to_string(),
+            Primary::False => "false".to_string(),
+            Primary::Nil => "nil".to_string(),
             Primary::Grouping(expr) => format!("(group {})", expr),
         };
 

@@ -1,59 +1,22 @@
 use crate::enums::error::Error;
 use crate::enums::expression::{Expression, Operator, Primary, Unary};
-use crate::enums::token::Token;
+use crate::enums::statement::Statement;
+use crate::enums::token::{Token, TokenStream};
 use crate::tokenizer::tokenize;
 use std::collections::VecDeque;
 use std::process;
 
-impl Token {
-    pub fn variant_matches(&self, other: &Token) -> bool {
-        self == other
-    }
-}
-
-pub struct TokenStream {
-    pub tokens: VecDeque<Token>,
-}
-
-impl TokenStream {
-    pub fn peek(&self) -> Option<&Token> {
-        self.tokens.front()
-    }
-
-    pub fn advance(&mut self) -> Option<Token> {
-        self.tokens.pop_front()
-    }
-
-    pub fn is_at_end(&self) -> bool {
-        self.tokens.is_empty()
-    }
-
-    pub fn peek_is(&self, expected_token_type: &Token) -> bool {
-        match self.peek() {
-            Some(token) => token.variant_matches(expected_token_type),
-            None => false,
-        }
-    }
-
-    pub fn match_advance(&mut self, expected_token_type: &Token) -> bool {
-        if self.peek_is(expected_token_type) {
-            self.advance();
-            return true;
-        }
-        false
-    }
-}
-
-pub fn parse(filename: &str) -> (Vec<Expression>, Vec<Error>) {
+pub fn parse(filename: &str) -> (Vec<Statement>, Vec<Error>) {
     let (tokens, token_errors) = tokenize(filename);
-    let mut ast: Vec<Expression> = Vec::new();
+
+    let mut statements: Vec<Statement> = Vec::new();
     let tokens: VecDeque<Token> = tokens.into();
     let mut stream = TokenStream { tokens };
     let mut errors: Vec<Error> = Vec::new();
 
     while !stream.is_at_end() {
-        match expression(&mut stream) {
-            Ok(leaf) => ast.push(leaf),
+        match statement(&mut stream) {
+            Ok(statement) => statements.push(statement),
             Err(err) => {
                 errors.push(err);
                 break;
@@ -65,11 +28,31 @@ pub fn parse(filename: &str) -> (Vec<Expression>, Vec<Error>) {
         process::exit(65)
     }
 
-    (ast, errors)
+    (statements, errors)
+}
+
+fn statement(tokens: &mut TokenStream) -> Result<Statement, Error> {
+    if tokens.match_advance(&Token::Print) {
+        let expression = expression(tokens)?;
+        return Ok(Statement::Print(expression));
+    }
+
+    match expression(tokens) {
+        Ok(expression) => Ok(Statement::Expression(expression)),
+        Err(err) => Err(err),
+    }
 }
 
 fn expression(tokens: &mut TokenStream) -> Result<Expression, Error> {
-    equality(tokens)
+    let expression = equality(tokens)?;
+    if tokens.peek_is(&Token::SemiColon) {
+        return Ok(expression);
+    }
+
+    Err(Error::ParseError(
+        1,
+        "Expect ';' after expression.".to_string(),
+    ))
 }
 
 fn equality(tokens: &mut TokenStream) -> Result<Expression, Error> {
@@ -154,14 +137,11 @@ fn primary(tokens: &mut TokenStream) -> Result<Expression, Error> {
     };
 
     match token {
-        Token::False => Ok(Expression::Primary(Primary::False(token))),
-        Token::True => Ok(Expression::Primary(Primary::True(token))),
-        Token::Nil => Ok(Expression::Primary(Primary::Nil(token))),
-        Token::Number(_, ref number) => Ok(Expression::Primary(Primary::Number(*number, token))),
-        Token::String(ref literal) => Ok(Expression::Primary(Primary::String(
-            literal.to_string(),
-            token,
-        ))),
+        Token::False => Ok(Expression::Primary(Primary::False)),
+        Token::True => Ok(Expression::Primary(Primary::True)),
+        Token::Nil => Ok(Expression::Primary(Primary::Nil)),
+        Token::Number(_, ref number) => Ok(Expression::Primary(Primary::Number(*number))),
+        Token::String(ref literal) => Ok(Expression::Primary(Primary::String(literal.to_string()))),
 
         Token::LeftParen => {
             let expr_inside = expression(tokens)?;
@@ -170,13 +150,13 @@ fn primary(tokens: &mut TokenStream) -> Result<Expression, Error> {
                     expr_inside,
                 ))))
             } else {
-                let error = Error::ParseError(1, token);
+                let error = Error::ParseError(1, "Expected ')' after expression.".to_string());
                 Err(error)
             }
         }
 
         _ => {
-            let error = Error::ParseError(1, token);
+            let error = Error::ParseError(1, "Unknown token".to_string());
             Err(error)
         }
     }

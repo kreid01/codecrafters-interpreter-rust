@@ -1,6 +1,45 @@
 use once_cell::sync::Lazy;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::fmt::{self, Display};
+
+impl Token {
+    pub fn variant_matches(&self, other: &Token) -> bool {
+        self == other
+    }
+}
+
+pub struct TokenStream {
+    pub tokens: VecDeque<Token>,
+}
+
+impl TokenStream {
+    pub fn peek(&self) -> Option<&Token> {
+        self.tokens.front()
+    }
+
+    pub fn advance(&mut self) -> Option<Token> {
+        self.tokens.pop_front()
+    }
+
+    pub fn is_at_end(&self) -> bool {
+        self.tokens.is_empty()
+    }
+
+    pub fn peek_is(&self, expected_token_type: &Token) -> bool {
+        match self.peek() {
+            Some(token) => token.variant_matches(expected_token_type),
+            None => false,
+        }
+    }
+
+    pub fn match_advance(&mut self, expected_token_type: &Token) -> bool {
+        if self.peek_is(expected_token_type) {
+            self.advance();
+            return true;
+        }
+        false
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Token {
@@ -67,34 +106,6 @@ pub static KEYWORD_MAP: Lazy<HashMap<&'static str, Token>> = Lazy::new(|| {
     m.insert("while", Token::While);
     m
 });
-
-trait AsString {
-    fn literal(&self) -> &str;
-}
-
-impl AsString for Token {
-    fn literal(&self) -> &str {
-        match self {
-            Self::And => "and",
-            Self::Class => "class",
-            Self::Else => "else",
-            Self::False => "false",
-            Self::For => "for",
-            Self::Fun => "fun",
-            Self::If => "if",
-            Self::Nil => "nil",
-            Self::Or => "or",
-            Self::Print => "print",
-            Self::Return => "return",
-            Self::Super => "super",
-            Self::This => "this",
-            Self::True => "true",
-            Self::Var => "var",
-            Self::While => "while",
-            _ => "No literal",
-        }
-    }
-}
 
 impl Display for Token {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> fmt::Result {
