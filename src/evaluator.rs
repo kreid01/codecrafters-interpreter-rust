@@ -1,6 +1,6 @@
 use core::panic;
 use std::collections::VecDeque;
-use std::fmt::{self, Display};
+use std::fmt::{self, Display, format};
 use std::process;
 
 use crate::enums::error::Error;
@@ -22,17 +22,6 @@ impl Display for Statement {
             Statement::Boolean(bool) => write!(fmt, "{}", bool),
         }
     }
-}
-
-fn equal(left: Statement, right: Statement) -> Statement {
-    let equal = match (left, right) {
-        (Statement::String(string1), Statement::String(string2)) => string1 == string2,
-        (Statement::Number(number1), Statement::Number(number2)) => number1 == number2,
-        (Statement::Boolean(bool1), Statement::Boolean(bool2)) => bool1 == bool2,
-        _ => false,
-    };
-
-    Statement::Boolean(equal)
 }
 
 pub fn evaluate(filename: &str) {
@@ -77,7 +66,6 @@ fn evaluate_expression(
         Expression::Primary(literal) => primary(literal, stream),
         Expression::Unary(operator, expression) => unary(operator, *expression, stream),
         Expression::Binary(left, operator, right) => binary(*left, operator, *right, stream),
-        _ => panic!("Not implemented"),
     }
 }
 
@@ -85,6 +73,8 @@ fn primary(primary: Primary, stream: &mut ExpressionStream) -> Result<Statement,
     match primary {
         Primary::Number(number, _) => Ok(Statement::Number(number)),
         Primary::String(string, _) => Ok(Statement::String(string)),
+        Primary::True(_) => Ok(Statement::Boolean(true)),
+        Primary::False(_) => Ok(Statement::Boolean(false)),
         Primary::Grouping(expression) => evaluate_expression(*expression, stream),
         _ => Ok(Statement::String(primary.to_string())),
     }
@@ -146,23 +136,44 @@ fn binary(
 
     match get_numeric_expressions(&left, &right) {
         Some((left, right)) => arithmetic(left, operator, right),
-        None => string_operations(left, operator, right),
+        None => operations(left, operator, right),
     }
 }
 
-fn string_operations(
-    left: Statement,
-    operator: Operator,
-    right: Statement,
-) -> Result<Statement, Error> {
+fn operations(left: Statement, operator: Operator, right: Statement) -> Result<Statement, Error> {
     match operator {
-        Operator::Plus => Ok(Statement::String(format!("{}{}", left, right))),
+        Operator::Plus => plus(&left, &right),
         Operator::BangEqual => Ok(Statement::Boolean(left.to_string() != right.to_string())),
-        Operator::EqualEqual => Ok(equal(left, right)),
+        Operator::EqualEqual => Ok(Statement::Boolean(equal(&left, &right))),
         _ => {
             let error = format!("Unable to execute operator {} on strings", operator);
             Err(Error::RuntimeError(1, error))
         }
+    }
+}
+
+fn plus(left: &Statement, right: &Statement) -> Result<Statement, Error> {
+    let statement = match (left, right) {
+        (Statement::String(left), Statement::String(right)) => format!("{}{}", left, right),
+        (Statement::Number(left), Statement::Number(right)) => format!("{}{}", left, right),
+        (Statement::Number(left), Statement::String(right)) => format!("{}{}", left, right),
+        _ => {
+            return Err(Error::RuntimeError(
+                1,
+                "Unable to operator + on mismatched mismatched types".to_string(),
+            ));
+        }
+    };
+
+    Ok(Statement::String(statement))
+}
+
+fn equal(left: &Statement, right: &Statement) -> bool {
+    match (left, right) {
+        (Statement::String(string1), Statement::String(string2)) => string1 == string2,
+        (Statement::Number(number1), Statement::Number(number2)) => number1 == number2,
+        (Statement::Boolean(bool1), Statement::Boolean(bool2)) => bool1 == bool2,
+        _ => false,
     }
 }
 
