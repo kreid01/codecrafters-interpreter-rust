@@ -1,7 +1,8 @@
 use std::{fs, process};
 
-use crate::expression::Expression;
-use crate::tokens::Token;
+use crate::enums::error::Error;
+use crate::enums::expression::Expression;
+use crate::enums::token::Token;
 
 pub fn get_file_contents(filename: &str) -> String {
     fs::read_to_string(filename).unwrap_or_else(|_| {
@@ -33,7 +34,7 @@ pub fn print_tokenizer_output(tokens: Vec<Token>, errors: Vec<Token>) {
     }
 }
 
-pub fn print_parser_output(tokens: Vec<Expression>, errors: Vec<Expression>) {
+pub fn print_parser_output(tokens: Vec<Expression>, errors: Vec<Error>) {
     let has_errors = !errors.is_empty();
 
     print_errors(errors.iter().map(|x| x.to_string()).collect());

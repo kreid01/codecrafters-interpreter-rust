@@ -1,5 +1,5 @@
 use once_cell::sync::Lazy;
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 use std::fmt::{self, Display};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -25,7 +25,7 @@ pub enum Token {
     Division,
     String(String),
     Identifier(String),
-    Number(String, String),
+    Number(String, f64),
     Error(char, usize),
     ErrorString(String, usize),
 
@@ -125,7 +125,7 @@ impl Display for Token {
                 format!("STRING \"{}\" {}", &string, &string)
             }
             Self::Number(string, number) => {
-                format!("NUMBER {} {}", string, number)
+                format!("NUMBER {} {}", string, format_number(number))
             }
 
             Self::Error(char, line) => {
@@ -156,41 +156,10 @@ impl Display for Token {
     }
 }
 
-impl Token {
-    pub fn variant_matches(&self, other: &Token) -> bool {
-        self == other
-    }
-}
-
-pub struct TokenStream {
-    pub tokens: VecDeque<Token>,
-}
-
-impl TokenStream {
-    pub fn peek(&self) -> Option<&Token> {
-        self.tokens.front()
-    }
-
-    pub fn advance(&mut self) -> Option<Token> {
-        self.tokens.pop_front()
-    }
-
-    pub fn is_at_end(&self) -> bool {
-        self.tokens.is_empty()
-    }
-
-    pub fn peek_is(&self, expected_token_type: &Token) -> bool {
-        match self.peek() {
-            Some(token) => token.variant_matches(expected_token_type),
-            None => false,
-        }
-    }
-
-    pub fn match_advance(&mut self, expected_token_type: &Token) -> bool {
-        if self.peek_is(expected_token_type) {
-            self.advance();
-            return true;
-        }
-        false
+pub fn format_number(n: &f64) -> String {
+    if n.fract() == 0.0 {
+        format!("{:.1}", n)
+    } else {
+        n.to_string()
     }
 }

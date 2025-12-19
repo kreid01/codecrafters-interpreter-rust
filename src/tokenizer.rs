@@ -1,4 +1,4 @@
-use crate::tokens::{KEYWORD_MAP, Token};
+use crate::enums::token::{KEYWORD_MAP, Token};
 use crate::utils::get_file_contents;
 
 pub fn tokenize(filename: &str) -> (Vec<Token>, Vec<Token>) {
@@ -42,7 +42,7 @@ pub fn tokenize(filename: &str) -> (Vec<Token>, Vec<Token>) {
                         get_numeric_token(&mut tokens, number, line_number)
                     }
                     identifier if token.is_alphabetic() || token == '_' => {
-                        get_identifier(&mut tokens, identifier, line_number)
+                        get_identifier(&mut tokens, identifier)
                     }
                     _ => Token::Error(token, line_number),
                 };
@@ -62,11 +62,7 @@ pub fn tokenize(filename: &str) -> (Vec<Token>, Vec<Token>) {
     (output, errors)
 }
 
-fn get_identifier(
-    tokens: &mut std::iter::Peekable<std::str::Chars<'_>>,
-    token: char,
-    line_number: usize,
-) -> Token {
+fn get_identifier(tokens: &mut std::iter::Peekable<std::str::Chars<'_>>, token: char) -> Token {
     let mut word = token.to_string();
 
     while let Some(next) = tokens.peek().cloned() {
@@ -120,17 +116,8 @@ fn get_numeric_token(
 }
 
 fn parse_number(string: String, line: usize) -> Token {
-    let number = string.parse::<f64>();
-
-    match number {
-        Ok(number) => {
-            let number = if number.fract() == 0.0 {
-                format!("{:.1}", number)
-            } else {
-                format!("{}", number)
-            };
-            Token::Number(string, number)
-        }
+    match string.parse::<f64>() {
+        Ok(number) => Token::Number(string, number),
         Err(_) => Token::ErrorString(string, line),
     }
 }

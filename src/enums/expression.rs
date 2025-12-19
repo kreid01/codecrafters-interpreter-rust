@@ -1,13 +1,12 @@
 use std::fmt::{self, Display};
 
-use crate::tokens::Token;
+use crate::enums::token::{Token, format_number};
 
 #[derive(Debug, PartialEq)]
 pub enum Expression {
     Binary(Box<Expression>, Operator, Box<Expression>),
     Unary(Unary, Box<Expression>),
     Primary(Primary),
-    ParserError(usize, Token),
 }
 
 impl Display for Expression {
@@ -22,20 +21,13 @@ impl Display for Expression {
             Expression::Binary(left, op, right) => {
                 write!(f, "({} {} {})", op, left, right)
             }
-            Expression::ParserError(usize, token) => {
-                write!(
-                    f,
-                    "[line {}] Error at '{}': Expect expression.",
-                    usize, token
-                )
-            }
         }
     }
 }
 
 #[derive(Debug, PartialEq)]
 pub enum Primary {
-    Number(String, String, Token),
+    Number(f64, Token),
     String(String, Token),
     True(Token),
     False(Token),
@@ -46,7 +38,7 @@ pub enum Primary {
 impl Display for Primary {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> fmt::Result {
         let literal = match self {
-            Primary::Number(literal, _, _) => literal.to_string(),
+            Primary::Number(number, _) => format_number(number),
             Primary::String(literal, _) => literal.to_string(),
             Primary::True(_) => "true".to_string(),
             Primary::False(_) => "false".to_string(),

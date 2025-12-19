@@ -1,16 +1,15 @@
 use std::env;
 use std::io::stdin;
 
-use crate::executor::execute;
+use crate::evaluator::evaluate;
 use crate::parser::parse;
 use crate::tokenizer::tokenize;
 use crate::utils::{print_parser_output, print_tokenizer_output};
 
-mod executor;
-mod expression;
+pub mod enums;
+mod evaluator;
 mod parser;
 mod tokenizer;
-mod tokens;
 mod utils;
 
 // mem & boxing
@@ -41,7 +40,7 @@ fn main() {
             let (ast, errors) = parse(filename);
             print_parser_output(ast, errors);
         }
-        "evaluate" => execute(filename),
+        "evaluate" => evaluate(filename),
         _ => {
             eprintln!("Unknown command: {}", command);
         }

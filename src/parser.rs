@@ -1,15 +1,55 @@
-use crate::expression::{Expression, Operator, Primary, Unary};
+use crate::enums::error::Error;
+use crate::enums::expression::{Expression, Operator, Primary, Unary};
+use crate::enums::token::Token;
 use crate::tokenizer::tokenize;
-use crate::tokens::{Token, TokenStream};
 use std::collections::VecDeque;
 use std::process;
 
-pub fn parse(filename: &str) -> (Vec<Expression>, Vec<Expression>) {
+impl Token {
+    pub fn variant_matches(&self, other: &Token) -> bool {
+        self == other
+    }
+}
+
+pub struct TokenStream {
+    pub tokens: VecDeque<Token>,
+}
+
+impl TokenStream {
+    pub fn peek(&self) -> Option<&Token> {
+        self.tokens.front()
+    }
+
+    pub fn advance(&mut self) -> Option<Token> {
+        self.tokens.pop_front()
+    }
+
+    pub fn is_at_end(&self) -> bool {
+        self.tokens.is_empty()
+    }
+
+    pub fn peek_is(&self, expected_token_type: &Token) -> bool {
+        match self.peek() {
+            Some(token) => token.variant_matches(expected_token_type),
+            None => false,
+        }
+    }
+
+    pub fn match_advance(&mut self, expected_token_type: &Token) -> bool {
+        if self.peek_is(expected_token_type) {
+            self.advance();
+            return true;
+        }
+        false
+    }
+}
+
+pub fn parse(filename: &str) -> (Vec<Expression>, Vec<Error>) {
     let (tokens, token_errors) = tokenize(filename);
     let mut ast: Vec<Expression> = Vec::new();
     let tokens: VecDeque<Token> = tokens.into();
     let mut stream = TokenStream { tokens };
-    let mut errors: Vec<Expression> = Vec::new();
+    let mut errors: Vec<Error> = Vec::new();
 
     while !stream.is_at_end() {
         match expression(&mut stream) {
@@ -28,11 +68,11 @@ pub fn parse(filename: &str) -> (Vec<Expression>, Vec<Expression>) {
     (ast, errors)
 }
 
-fn expression(tokens: &mut TokenStream) -> Result<Expression, Expression> {
+fn expression(tokens: &mut TokenStream) -> Result<Expression, Error> {
     equality(tokens)
 }
 
-fn equality(tokens: &mut TokenStream) -> Result<Expression, Expression> {
+fn equality(tokens: &mut TokenStream) -> Result<Expression, Error> {
     let mut expr = comparison(tokens)?;
 
     while tokens.peek_is(&Token::EqualEqual) || tokens.peek_is(&Token::BangEqual) {
@@ -46,7 +86,7 @@ fn equality(tokens: &mut TokenStream) -> Result<Expression, Expression> {
     Ok(expr)
 }
 
-fn comparison(tokens: &mut TokenStream) -> Result<Expression, Expression> {
+fn comparison(tokens: &mut TokenStream) -> Result<Expression, Error> {
     let mut expr = addition(tokens)?;
 
     while tokens.peek_is(&Token::Less)
@@ -64,7 +104,7 @@ fn comparison(tokens: &mut TokenStream) -> Result<Expression, Expression> {
     Ok(expr)
 }
 
-fn addition(tokens: &mut TokenStream) -> Result<Expression, Expression> {
+fn addition(tokens: &mut TokenStream) -> Result<Expression, Error> {
     let mut expr = multiplication(tokens)?;
 
     while tokens.peek_is(&Token::Plus) || tokens.peek_is(&Token::Minus) {
@@ -78,7 +118,7 @@ fn addition(tokens: &mut TokenStream) -> Result<Expression, Expression> {
     Ok(expr)
 }
 
-fn multiplication(tokens: &mut TokenStream) -> Result<Expression, Expression> {
+fn multiplication(tokens: &mut TokenStream) -> Result<Expression, Error> {
     let mut expr = unary(tokens)?;
 
     while tokens.peek_is(&Token::Star) || tokens.peek_is(&Token::Division) {
@@ -92,7 +132,7 @@ fn multiplication(tokens: &mut TokenStream) -> Result<Expression, Expression> {
     Ok(expr)
 }
 
-fn unary(tokens: &mut TokenStream) -> Result<Expression, Expression> {
+fn unary(tokens: &mut TokenStream) -> Result<Expression, Error> {
     if tokens.peek_is(&Token::Bang) || tokens.peek_is(&Token::Minus) {
         let operator_token = tokens.advance().unwrap();
         let unary_op = to_unary(operator_token);
@@ -105,7 +145,7 @@ fn unary(tokens: &mut TokenStream) -> Result<Expression, Expression> {
     }
 }
 
-fn primary(tokens: &mut TokenStream) -> Result<Expression, Expression> {
+fn primary(tokens: &mut TokenStream) -> Result<Expression, Error> {
     let token = match tokens.advance() {
         Some(token) => token,
         None => {
@@ -117,11 +157,7 @@ fn primary(tokens: &mut TokenStream) -> Result<Expression, Expression> {
         Token::False => Ok(Expression::Primary(Primary::False(token))),
         Token::True => Ok(Expression::Primary(Primary::True(token))),
         Token::Nil => Ok(Expression::Primary(Primary::Nil(token))),
-        Token::Number(ref number, ref literal) => Ok(Expression::Primary(Primary::Number(
-            literal.to_string(),
-            number.to_string(),
-            token,
-        ))),
+        Token::Number(_, ref number) => Ok(Expression::Primary(Primary::Number(*number, token))),
         Token::String(ref literal) => Ok(Expression::Primary(Primary::String(
             literal.to_string(),
             token,
@@ -134,13 +170,13 @@ fn primary(tokens: &mut TokenStream) -> Result<Expression, Expression> {
                     expr_inside,
                 ))))
             } else {
-                let error = Expression::ParserError(1, token);
+                let error = Error::ParseError(1, token);
                 Err(error)
             }
         }
 
         _ => {
-            let error = Expression::ParserError(1, token);
+            let error = Error::ParseError(1, token);
             Err(error)
         }
     }
