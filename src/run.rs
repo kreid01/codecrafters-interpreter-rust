@@ -3,7 +3,7 @@ use std::process;
 use crate::enums::environment::Environment;
 use crate::enums::error::Error;
 use crate::enums::statement::Statement;
-use crate::evaluator::{Value, evaluate};
+use crate::evaluator::{Value, evaluate, truthy};
 use crate::parser::parse_statements;
 
 pub fn run(filename: &str) {
@@ -66,17 +66,7 @@ fn evaluate_statement(
                 Err(err) => return errors.push(err),
             };
 
-            let condition = match condition {
-                Value::Boolean(bool) => bool,
-                _ => {
-                    return errors.push(Error::RuntimeError(
-                        1,
-                        "Only booleans can be conditional expression".to_string(),
-                    ));
-                }
-            };
-
-            if condition {
+            if truthy(condition) {
                 evaluate_statement(*if_stmt, errors, environment);
             } else if let Some(else_stmt) = else_stmt {
                 evaluate_statement(*else_stmt, errors, environment);

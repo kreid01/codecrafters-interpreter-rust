@@ -124,23 +124,30 @@ fn binary(
     symbols: &mut Environment,
 ) -> Result<Value, Error> {
     let left = evaluate_expression(left, symbols)?;
+
+    if matches!(operator, Operator::Or) {
+        if truthy(left.clone()) {
+            return Ok(left);
+        } else {
+            let right = evaluate_expression(right, symbols)?;
+            if truthy(right.clone()) {
+                return Ok(right);
+            } else {
+                return Ok(Value::Boolean(false));
+            }
+        }
+    }
+
     let right = evaluate_expression(right, symbols)?;
 
-    let left = check_double_negative(left);
-    let right = check_double_negative(right);
-
-    match get_numeric_expressions(&left, &right) {
-        Some((left, right)) => arithmetic(left, operator, right),
-        None => operations(left, operator, right),
-    }
-}
-
-fn operations(left: Value, operator: &Operator, right: Value) -> Result<Value, Error> {
     match operator {
         Operator::Plus => plus(&left, &right),
-        Operator::BangEqual => Ok(Value::Boolean(left.to_string() != right.to_string())),
+        Operator::BangEqual => Ok(Value::Boolean(left != right)),
         Operator::EqualEqual => Ok(Value::Boolean(equal(&left, &right))),
         _ => {
+            if let (Value::Number(left), Value::Number(right)) = (left, right) {
+                return arithmetic(left, operator, right);
+            }
             let error = format!(
                 "Unable to execute operator {} on strings ors booleans",
                 operator
@@ -150,11 +157,27 @@ fn operations(left: Value, operator: &Operator, right: Value) -> Result<Value, E
     }
 }
 
+fn arithmetic(left: f64, operator: &Operator, right: f64) -> Result<Value, Error> {
+    match operator {
+        Operator::Minus => Ok(Value::Number(left - right)),
+        Operator::Star => Ok(Value::Number(left * right)),
+        Operator::Division => Ok(Value::Number(left / right)),
+        Operator::Less => Ok(Value::Boolean(left < right)),
+        Operator::LessEqual => Ok(Value::Boolean(left <= right)),
+        Operator::Greater => Ok(Value::Boolean(left > right)),
+        Operator::GreaterEqual => Ok(Value::Boolean(left >= right)),
+        Operator::EqualEqual => Ok(Value::Boolean(left == right)),
+        Operator::BangEqual => Ok(Value::Boolean(left != right)),
+        _ => panic!("Operator not recognizer"),
+    }
+}
+
 fn plus(left: &Value, right: &Value) -> Result<Value, Error> {
     match (left, right) {
         (Value::String(left), Value::String(right)) => {
             Ok(Value::String(format!("{}{}", left, right)))
         }
+        (Value::Number(left), Value::Number(right)) => Ok(Value::Number(left + right)),
         _ => Err(Error::RuntimeError(
             1,
             "Opperands must be 2 numbers or 2 strings".to_string(),
@@ -171,41 +194,11 @@ fn equal(left: &Value, right: &Value) -> bool {
     }
 }
 
-fn get_numeric_expressions(left: &Value, right: &Value) -> Option<(f64, f64)> {
-    let left = match left {
-        Value::Number(number) => number,
-        _ => return None,
-    };
-
-    let right = match right {
-        Value::Number(number) => number,
-        _ => return None,
-    };
-
-    Some((*left, *right))
-}
-
-fn check_double_negative(statement: Value) -> Value {
-    match statement {
-        Value::String(ref string) => match string.starts_with("--") {
-            true => Value::String(string.replace("--", "")),
-            false => statement,
-        },
-        _ => statement,
-    }
-}
-
-fn arithmetic(left: f64, operator: &Operator, right: f64) -> Result<Value, Error> {
-    match operator {
-        Operator::Plus => Ok(Value::Number(left + right)),
-        Operator::Minus => Ok(Value::Number(left - right)),
-        Operator::Star => Ok(Value::Number(left * right)),
-        Operator::Division => Ok(Value::Number(left / right)),
-        Operator::Less => Ok(Value::Boolean(left < right)),
-        Operator::LessEqual => Ok(Value::Boolean(left <= right)),
-        Operator::Greater => Ok(Value::Boolean(left > right)),
-        Operator::GreaterEqual => Ok(Value::Boolean(left >= right)),
-        Operator::EqualEqual => Ok(Value::Boolean(left == right)),
-        Operator::BangEqual => Ok(Value::Boolean(left != right)),
+pub fn truthy(value: Value) -> bool {
+    match value {
+        Value::String(string) => !string.is_empty(),
+        Value::Boolean(bool) => bool,
+        Value::Number(number) => number != 0.0,
+        Value::Nil => false,
     }
 }

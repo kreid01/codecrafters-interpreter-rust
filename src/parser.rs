@@ -126,7 +126,7 @@ fn expression(tokens: &mut TokenStream) -> Result<Expression, Error> {
 }
 
 fn assignment(tokens: &mut TokenStream) -> Result<Expression, Error> {
-    let left = equality(tokens)?;
+    let left = logical_or(tokens)?;
 
     if tokens.peek_is(&Token::Equal) {
         tokens.advance();
@@ -144,6 +144,32 @@ fn assignment(tokens: &mut TokenStream) -> Result<Expression, Error> {
     }
 
     Ok(left)
+}
+
+fn logical_or(tokens: &mut TokenStream) -> Result<Expression, Error> {
+    let mut expr = logical_and(tokens)?;
+
+    while tokens.peek_is(&Token::Or) {
+        tokens.advance();
+        let right = logical_and(tokens)?;
+
+        expr = Expression::Binary(Box::new(expr), Operator::Or, Box::new(right));
+    }
+
+    Ok(expr)
+}
+
+fn logical_and(tokens: &mut TokenStream) -> Result<Expression, Error> {
+    let mut expr = equality(tokens)?;
+
+    while tokens.peek_is(&Token::And) {
+        tokens.advance();
+        let right = equality(tokens)?;
+
+        expr = Expression::Binary(Box::new(expr), Operator::And, Box::new(right));
+    }
+
+    Ok(expr)
 }
 
 fn equality(tokens: &mut TokenStream) -> Result<Expression, Error> {
@@ -258,6 +284,7 @@ fn to_equality(token: Token) -> Operator {
     match token {
         Token::EqualEqual => Operator::EqualEqual,
         Token::BangEqual => Operator::BangEqual,
+
         _ => panic!("Expected binary operator, got {:?}", token),
     }
 }

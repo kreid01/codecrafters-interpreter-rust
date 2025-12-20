@@ -85,6 +85,8 @@ pub enum Operator {
     Star,
     Minus,
     Plus,
+    Or,
+    And,
 }
 
 impl Display for Operator {
@@ -100,6 +102,8 @@ impl Display for Operator {
             Operator::Star => "*",
             Operator::Plus => "+",
             Operator::Minus => "-",
+            Operator::And => "And",
+            Operator::Or => "Or",
         };
 
         write!(fmt, "{}", operator)
