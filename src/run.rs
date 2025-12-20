@@ -3,7 +3,7 @@ use std::process;
 use crate::enums::environment::Environment;
 use crate::enums::error::Error;
 use crate::enums::statement::Statement;
-use crate::evaluator::{Value, evaluate, truthy};
+use crate::evaluator::{evaluate, truthy};
 use crate::parser::parse_statements;
 
 pub fn run(filename: &str) {
@@ -75,6 +75,20 @@ fn evaluate_statement(
         Statement::While(condition, statement) => {
             while truthy(evaluate(&condition, environment).unwrap()) {
                 evaluate_statement(*statement.clone(), errors, environment);
+            }
+        }
+        Statement::For(statement, check, increment, block) => {
+            if let Some(statement) = statement {
+                evaluate_statement(*statement.clone(), errors, environment);
+            }
+
+            if let Some(check) = check {
+                while truthy(evaluate(&check, environment).unwrap()) {
+                    evaluate_statement(*block.clone(), errors, environment);
+                    if let Some(increment) = increment.clone() {
+                        let _ = evaluate(&increment, environment);
+                    }
+                }
             }
         }
     }

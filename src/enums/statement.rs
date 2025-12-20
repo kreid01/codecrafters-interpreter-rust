@@ -10,6 +10,12 @@ pub enum Statement {
     IfElse(Expression, Box<Statement>, Option<Box<Statement>>),
     Print(Expression),
     While(Expression, Box<Statement>),
+    For(
+        Option<Box<Statement>>,
+        Option<Expression>,
+        Option<Expression>,
+        Box<Statement>,
+    ),
 }
 
 impl Display for Statement {
@@ -26,6 +32,16 @@ impl Display for Statement {
             }
             Statement::While(conditional, statement) => {
                 write!(fmt, "while ({}) {} ", conditional, statement)
+            }
+            Statement::For(statement, check, increment, block) => {
+                write!(
+                    fmt,
+                    "for ({}{}{}) {} ",
+                    statement.clone().unwrap(),
+                    check.clone().unwrap(),
+                    increment.clone().unwrap(),
+                    block
+                )
             }
         }
     }
