@@ -1,9 +1,11 @@
 use crate::enums::environment::Environment;
 use crate::enums::error::Error;
 use crate::enums::expression::{Expression, Operator, Primary, Unary};
+use crate::utils::print;
 use std::process;
 
 use std::fmt::{self, Display};
+use std::time::{Instant, SystemTime};
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum Value {
@@ -73,6 +75,24 @@ fn primary(primary: &Primary, symbols: &mut Environment) -> Result<Value, Error>
         Primary::Nil => Ok(Value::Nil),
         Primary::Grouping(expression) => evaluate_expression(expression, symbols),
         Primary::Identifier(identifier) => variable(identifier, symbols),
+        Primary::Function(name) => function(name, symbols),
+    }
+}
+
+fn function(function: &str, symbols: &Environment) -> Result<Value, Error> {
+    match function {
+        "clock" => {
+            let now = SystemTime::now();
+            if let Ok(now) = now.duration_since(SystemTime::UNIX_EPOCH) {
+                Ok(Value::Number(now.as_secs_f64()))
+            } else {
+                Err(Error::RuntimeError(
+                    1,
+                    "Failed to get current time".to_string(),
+                ))
+            }
+        }
+        _ => Err(Error::RuntimeError(1, "Unknown method".to_string())),
     }
 }
 
@@ -125,6 +145,7 @@ fn binary(
 ) -> Result<Value, Error> {
     let left = evaluate_expression(left, symbols)?;
 
+    //ugly please fix
     if matches!(operator, Operator::Or) {
         if truthy(left.clone()) {
             return Ok(left);

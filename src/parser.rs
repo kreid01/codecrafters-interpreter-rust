@@ -86,14 +86,28 @@ fn statement(tokens: &mut TokenStream) -> Result<Statement, Error> {
         return for_statement(tokens);
     }
 
+    if tokens.match_advance(&Token::Fun) {
+        return fn_statement(tokens);
+    }
+
     let expr = expression(tokens)?;
     tokens.consume(&Token::SemiColon, "Expected ';' after expression.")?;
     Ok(Statement::Expression(expr))
 }
 
+fn fn_statement(tokens: &mut TokenStream) -> Result<Statement, Error> {
+    let identifier = tokens.consume_identifier("Function name expected")?;
+    tokens.consume(&Token::LeftParen, "Error at fn expected '('")?;
+    tokens.consume(&Token::LeftParen, "Error at fn expected '('")?;
+
+    let block = block(tokens)?;
+
+    Ok(Statement::Fn(identifier, None, Box::new(block)))
+}
+
 fn for_statement(tokens: &mut TokenStream) -> Result<Statement, Error> {
     tokens.consume(&Token::LeftParen, "Expected '(' after statement.")?;
-    let _ = tokens.consume(&Token::Var, "Expected declaration after for.");
+    let _ = tokens.consume(&Token::Var, "Error at var expected declaration after for.");
 
     let statement = match var_declaration(tokens) {
         Ok(statement) => Some(Box::new(statement)),
@@ -103,7 +117,10 @@ fn for_statement(tokens: &mut TokenStream) -> Result<Statement, Error> {
         }
     };
 
-    let check = match matches!(tokens.peek().unwrap(), Token::Identifier(_)) {
+    let check = match matches!(
+        tokens.peek().unwrap_or(&Token::Unknown),
+        Token::Identifier(_)
+    ) {
         true => {
             let expr = expression(tokens)?;
             tokens.consume(&Token::SemiColon, "Expected ';'.")?;
@@ -112,7 +129,10 @@ fn for_statement(tokens: &mut TokenStream) -> Result<Statement, Error> {
         false => None,
     };
 
-    let increment = match matches!(tokens.peek().unwrap(), Token::Identifier(_)) {
+    let increment = match matches!(
+        tokens.peek().unwrap_or(&Token::Unknown),
+        Token::Identifier(_)
+    ) {
         true => Some(expression(tokens)?),
         false => None,
     };
@@ -311,7 +331,12 @@ fn primary(tokens: &mut TokenStream) -> Result<Expression, Error> {
         Token::Nil => Ok(Expression::Primary(Primary::Nil)),
         Token::Number(_, ref number) => Ok(Expression::Primary(Primary::Number(*number))),
         Token::String(ref literal) => Ok(Expression::Primary(Primary::String(literal.to_string()))),
-        Token::Identifier(identifier) => Ok(Expression::Primary(Primary::Identifier(identifier))),
+        Token::Identifier(identifier) => {
+            if let Ok(expr) = is_function(&identifier, tokens) {
+                return Ok(expr);
+            }
+            Ok(Expression::Primary(Primary::Identifier(identifier)))
+        }
 
         Token::LeftParen => {
             let expr_inside = expression(tokens)?;
@@ -330,6 +355,14 @@ fn primary(tokens: &mut TokenStream) -> Result<Expression, Error> {
             Err(error)
         }
     }
+}
+
+fn is_function(identifier: &String, tokens: &mut TokenStream) -> Result<Expression, Error> {
+    let _ = tokens.consume(&Token::LeftParen, "")?;
+    let _ = tokens.consume(&Token::RightParen, "")?;
+    Ok(Expression::Primary(Primary::Function(
+        identifier.to_string(),
+    )))
 }
 
 fn to_equality(token: Token) -> Operator {

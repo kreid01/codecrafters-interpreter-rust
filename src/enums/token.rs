@@ -106,6 +106,8 @@ pub enum Token {
     True,
     Var,
     While,
+
+    Unknown,
 }
 
 pub static KEYWORD_MAP: Lazy<HashMap<&'static str, Token>> = Lazy::new(|| {
@@ -184,6 +186,7 @@ impl Display for Token {
             Self::True => format!("{} {} null", "TRUE", "true"),
             Self::Var => format!("{} {} null", "VAR", "var"),
             Self::While => format!("{} {} null", "WHILE", "while"),
+            Self::Unknown => "Unknown token".to_string(),
         };
 
         write!(fmt, "{}", token)

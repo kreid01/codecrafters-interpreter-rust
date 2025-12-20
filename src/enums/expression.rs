@@ -38,6 +38,7 @@ pub enum Primary {
     Nil,
     Grouping(Box<Expression>),
     Identifier(String),
+    Function(String),
 }
 
 impl Display for Primary {
@@ -49,6 +50,7 @@ impl Display for Primary {
             Primary::False => "false".to_string(),
             Primary::Nil => "nil".to_string(),
             Primary::Identifier(name) => name.to_string(),
+            Primary::Function(name) => format!("{}()", name),
             Primary::Grouping(expr) => format!("(group {})", expr),
         };
 

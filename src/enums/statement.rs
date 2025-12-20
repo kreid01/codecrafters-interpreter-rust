@@ -1,6 +1,7 @@
 use std::fmt::{self, Display};
 
 use crate::enums::expression::Expression;
+use crate::enums::token::Token;
 
 #[derive(Debug, Clone)]
 pub enum Statement {
@@ -16,6 +17,7 @@ pub enum Statement {
         Option<Expression>,
         Box<Statement>,
     ),
+    Fn(String, Option<Vec<Token>>, Box<Statement>),
 }
 
 impl Display for Statement {
@@ -42,6 +44,18 @@ impl Display for Statement {
                     increment.clone().unwrap(),
                     block
                 )
+            }
+            Statement::Fn(name, params, body) => {
+                let params = match params {
+                    Some(params) => params
+                        .iter()
+                        .map(|x| x.to_string())
+                        .collect::<Vec<String>>()
+                        .join(","),
+                    None => String::new(),
+                };
+
+                write!(fmt, "{}({}) {}", name, params, body)
             }
         }
     }

@@ -1,6 +1,20 @@
 use crate::enums::token::{KEYWORD_MAP, Token};
 use crate::utils::get_file_contents;
 
+struct CharStream<'a> {
+    chars: std::iter::Peekable<std::str::Chars<'a>>,
+}
+
+impl CharStream<'_> {
+    fn peek(&mut self) -> Option<char> {
+        self.chars.peek().copied()
+    }
+
+    fn next(&mut self) -> Option<char> {
+        self.chars.next()
+    }
+}
+
 pub fn tokenize(filename: &str) -> (Vec<Token>, Vec<Token>) {
     let mut output: Vec<Token> = Vec::new();
     let mut errors: Vec<Token> = Vec::new();
@@ -8,7 +22,9 @@ pub fn tokenize(filename: &str) -> (Vec<Token>, Vec<Token>) {
     let file_contents = get_file_contents(filename);
 
     if !file_contents.is_empty() {
-        let mut tokens = file_contents.chars().peekable();
+        let chars = file_contents.chars().peekable();
+        let mut tokens = CharStream { chars };
+
         let mut line_number = 1;
 
         while let Some(token) = tokens.next() {
@@ -27,7 +43,7 @@ pub fn tokenize(filename: &str) -> (Vec<Token>, Vec<Token>) {
                 '!' => get_equal_token(&mut tokens, Token::BangEqual, Token::Bang),
                 '>' => get_equal_token(&mut tokens, Token::GreaterEqual, Token::Greater),
                 '<' => get_equal_token(&mut tokens, Token::LessEqual, Token::Less),
-                '/' => match tokens.peek().copied() {
+                '/' => match tokens.peek() {
                     Some('/') => {
                         tokens.next();
                         remove_comment(&mut tokens);
@@ -64,8 +80,8 @@ pub fn tokenize(filename: &str) -> (Vec<Token>, Vec<Token>) {
     (output, errors)
 }
 
-fn remove_comment(tokens: &mut std::iter::Peekable<std::str::Chars<'_>>) {
-    while let Some(next) = tokens.peek().cloned() {
+fn remove_comment(tokens: &mut CharStream) {
+    while let Some(next) = tokens.peek() {
         match next {
             '\n' => {
                 return;
@@ -77,10 +93,10 @@ fn remove_comment(tokens: &mut std::iter::Peekable<std::str::Chars<'_>>) {
     }
 }
 
-fn get_identifier(tokens: &mut std::iter::Peekable<std::str::Chars<'_>>, token: char) -> Token {
+fn get_identifier(tokens: &mut CharStream, token: char) -> Token {
     let mut word = token.to_string();
 
-    while let Some(next) = tokens.peek().cloned() {
+    while let Some(next) = tokens.peek() {
         match next {
             char if next.is_alphanumeric() || next == '_' => {
                 tokens.next();
@@ -100,15 +116,11 @@ fn identifier_or_keyword(word: &str) -> Token {
         .unwrap_or_else(|| Token::Identifier(word.to_string()))
 }
 
-fn get_numeric_token(
-    tokens: &mut std::iter::Peekable<std::str::Chars<'_>>,
-    token: char,
-    line: usize,
-) -> Token {
+fn get_numeric_token(tokens: &mut CharStream, token: char, line: usize) -> Token {
     let mut number = token.to_string();
     let mut decimal = false;
 
-    while let Some(next) = tokens.peek().cloned() {
+    while let Some(next) = tokens.peek() {
         match next {
             '.' => {
                 if decimal {
@@ -137,9 +149,9 @@ fn parse_number(string: String, line: usize) -> Token {
     }
 }
 
-fn get_string_token(tokens: &mut std::iter::Peekable<std::str::Chars<'_>>, line: usize) -> Token {
+fn get_string_token(tokens: &mut CharStream, line: usize) -> Token {
     let mut string = String::new();
-    while let Some(next) = tokens.peek().cloned() {
+    while let Some(next) = tokens.peek() {
         match next {
             '"' => {
                 tokens.next();
@@ -155,12 +167,8 @@ fn get_string_token(tokens: &mut std::iter::Peekable<std::str::Chars<'_>>, line:
     Token::ErrorString(string, line)
 }
 
-fn get_equal_token(
-    tokens: &mut std::iter::Peekable<std::str::Chars<'_>>,
-    if_equal_token: Token,
-    token: Token,
-) -> Token {
-    match tokens.peek().copied() {
+fn get_equal_token(tokens: &mut CharStream, if_equal_token: Token, token: Token) -> Token {
+    match tokens.peek() {
         Some('=') => {
             tokens.next();
             if_equal_token
