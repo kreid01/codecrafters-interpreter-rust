@@ -1,9 +1,7 @@
-use std::io::stdin;
+use std::fmt::Display;
 use std::{env, process};
 
-use crate::enums::expression::Expression;
-use crate::enums::statement::Statement;
-use crate::evaluator::{Value, evaluate};
+use crate::evaluator::evaluate;
 use crate::parser::parse;
 use crate::run::run;
 use crate::tokenizer::tokenize;
@@ -19,13 +17,6 @@ mod utils;
 // no unwraps
 
 fn main() {
-    // let mut input = String::new();
-    // let stdin = stdin();
-    // stdin.read_line(&mut input).unwrap();
-    // println!("{}", input);
-    //
-    // run(&input);
-
     let args: Vec<String> = env::args().collect();
     if args.len() < 3 {
         eprintln!("Usage: {} tokenize <filename>", args[0]);
@@ -38,51 +29,35 @@ fn main() {
         "tokenize" => {
             eprintln!("Logs from your program will appear here!");
             let (tokens, errors) = tokenize(filename);
-
             let has_errors = !errors.is_empty();
 
-            for e in errors {
-                eprintln!("{}", e)
+            for x in errors {
+                eprintln!("{}", x);
             }
-
-            for token in tokens {
-                println!("{}", token)
-            }
-
+            print(tokens);
             println!("EOF  null");
 
-            if has_errors {
-                process::exit(65)
-            }
+            if_error_exit(has_errors, 65);
         }
         "parse" => {
             let (_, errors) = tokenize(filename);
-
-            if !errors.is_empty() {
-                process::exit(65)
-            }
+            if_error_exit(!errors.is_empty(), 65);
 
             let (expressions, errors) = parse(filename);
+            if_error_exit(!errors.is_empty(), 65);
 
-            if !errors.is_empty() {
-                process::exit(65);
-            }
-
-            for e in expressions {
-                println!("{}", e)
-            }
+            print(expressions)
         }
         "evaluate" => {
             let (expressions, errors) = parse(filename);
-
-            if !errors.is_empty() {
-                process::exit(70);
-            }
+            if_error_exit(!errors.is_empty(), 70);
 
             for e in expressions {
                 match evaluate(&e) {
                     Ok(value) => println!("{}", value),
-                    Err(_) => process::exit(65),
+                    Err(_) => {
+                        process::exit(65);
+                    }
                 }
             }
         }
@@ -90,5 +65,20 @@ fn main() {
         _ => {
             eprintln!("Unknown command: {}", command);
         }
+    }
+}
+
+fn if_error_exit(errors: bool, code: i32) {
+    if errors {
+        process::exit(code);
+    }
+}
+
+fn print<T>(output: Vec<T>)
+where
+    T: Display,
+{
+    for x in output {
+        println!("{}", x);
     }
 }

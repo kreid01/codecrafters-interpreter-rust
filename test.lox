@@ -1,0 +1,10 @@
+print "99
+17
+51
+";
+
+print "There should be an empty line above this.";
+
+print "(" + "" + ")";
+
+print "non-ascii: ॐ";

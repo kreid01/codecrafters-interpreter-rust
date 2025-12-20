@@ -61,15 +61,14 @@ fn statement(tokens: &mut TokenStream) -> Result<Statement, Error> {
 
 fn expression_statement(tokens: &mut TokenStream) -> Result<Expression, Error> {
     let expression = expression(tokens)?;
-    if tokens.peek_is(&Token::SemiColon) {
-        tokens.advance();
-        return Ok(expression);
+    if tokens.match_advance(&Token::SemiColon) {
+        Ok(expression)
+    } else {
+        Err(Error::ParseError(
+            1,
+            "Expect ';' after expression.".to_string(),
+        ))
     }
-
-    Err(Error::ParseError(
-        1,
-        "Expect ';' after expression.".to_string(),
-    ))
 }
 
 fn expression(tokens: &mut TokenStream) -> Result<Expression, Error> {

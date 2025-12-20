@@ -8,56 +8,73 @@ pub fn tokenize(filename: &str) -> (Vec<Token>, Vec<Token>) {
     let file_contents = get_file_contents(filename);
 
     if !file_contents.is_empty() {
-        for (i, line) in file_contents.lines().enumerate() {
-            let mut tokens = line.chars().peekable();
-            let line_number = i + 1;
+        let mut tokens = file_contents.chars().peekable();
+        let mut line_number = 1;
 
-            while let Some(token) = tokens.next() {
-                let token = match token {
-                    '(' => Token::LeftParen,
-                    ')' => Token::RightParen,
-                    '{' => Token::LeftBrace,
-                    '}' => Token::RightBrace,
-                    '.' => Token::Dot,
-                    ',' => Token::Comma,
-                    '+' => Token::Plus,
-                    '-' => Token::Minus,
-                    '*' => Token::Star,
-                    ';' => Token::SemiColon,
-                    '=' => get_equal_token(&mut tokens, Token::EqualEqual, Token::Equal),
-                    '!' => get_equal_token(&mut tokens, Token::BangEqual, Token::Bang),
-                    '>' => get_equal_token(&mut tokens, Token::GreaterEqual, Token::Greater),
-                    '<' => get_equal_token(&mut tokens, Token::LessEqual, Token::Less),
-                    '/' => match tokens.peek().copied() {
-                        Some('/') => break,
-                        _ => Token::Division,
-                    },
-                    ' ' | '\n' | '\t' => {
+        while let Some(token) = tokens.next() {
+            let token = match token {
+                '(' => Token::LeftParen,
+                ')' => Token::RightParen,
+                '{' => Token::LeftBrace,
+                '}' => Token::RightBrace,
+                '.' => Token::Dot,
+                ',' => Token::Comma,
+                '+' => Token::Plus,
+                '-' => Token::Minus,
+                '*' => Token::Star,
+                ';' => Token::SemiColon,
+                '=' => get_equal_token(&mut tokens, Token::EqualEqual, Token::Equal),
+                '!' => get_equal_token(&mut tokens, Token::BangEqual, Token::Bang),
+                '>' => get_equal_token(&mut tokens, Token::GreaterEqual, Token::Greater),
+                '<' => get_equal_token(&mut tokens, Token::LessEqual, Token::Less),
+                '/' => match tokens.peek().copied() {
+                    Some('/') => {
+                        tokens.next();
+                        remove_comment(&mut tokens);
                         continue;
                     }
-                    '"' => get_string_token(&mut tokens, line_number),
-                    number if token.is_numeric() => {
-                        get_numeric_token(&mut tokens, number, line_number)
-                    }
-                    identifier if token.is_alphabetic() || token == '_' => {
-                        get_identifier(&mut tokens, identifier)
-                    }
-                    _ => Token::Error(token, line_number),
-                };
+                    _ => Token::Division,
+                },
+                ' ' | '\t' => {
+                    continue;
+                }
+                '\n' => {
+                    line_number += 1;
+                    continue;
+                }
+                '"' => get_string_token(&mut tokens, line_number),
+                number if token.is_numeric() => get_numeric_token(&mut tokens, number, line_number),
+                identifier if token.is_alphabetic() || token == '_' => {
+                    get_identifier(&mut tokens, identifier)
+                }
+                _ => Token::Error(token, line_number),
+            };
 
-                match token {
-                    Token::ErrorString(_, _) | Token::Error(_, _) => {
-                        errors.push(token);
-                    }
-                    _ => {
-                        output.push(token);
-                    }
+            match token {
+                Token::ErrorString(_, _) | Token::Error(_, _) => {
+                    errors.push(token);
+                }
+                _ => {
+                    output.push(token);
                 }
             }
         }
     }
 
     (output, errors)
+}
+
+fn remove_comment(tokens: &mut std::iter::Peekable<std::str::Chars<'_>>) {
+    while let Some(next) = tokens.peek().cloned() {
+        match next {
+            '\n' => {
+                return;
+            }
+            _ => {
+                tokens.next();
+            }
+        }
+    }
 }
 
 fn get_identifier(tokens: &mut std::iter::Peekable<std::str::Chars<'_>>, token: char) -> Token {
