@@ -4,7 +4,7 @@ use std::{env, process};
 
 use crate::evaluator::{Value, evaluate};
 use crate::parser::parse;
-use crate::run::run;
+use crate::run::{Environment, run};
 use crate::tokenizer::tokenize;
 
 pub mod enums;
@@ -51,11 +51,11 @@ fn main() {
         }
         "evaluate" => {
             let (expressions, errors) = parse(filename);
-            let mut symbols: HashMap<String, Value> = HashMap::new();
+            let mut env = Environment::new();
             if_error_exit(!errors.is_empty(), 70);
 
             for e in expressions {
-                match evaluate(&e, &mut symbols) {
+                match evaluate(&e, &mut env) {
                     Ok(value) => println!("{}", value),
                     Err(_) => {
                         process::exit(65);

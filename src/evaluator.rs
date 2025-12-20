@@ -1,6 +1,6 @@
 use crate::enums::error::Error;
 use crate::enums::expression::{Expression, Operator, Primary, Unary};
-use std::collections::HashMap;
+use crate::run::Environment;
 use std::process;
 
 use std::fmt::{self, Display};
@@ -24,20 +24,14 @@ impl Display for Value {
     }
 }
 
-pub fn evaluate(
-    expression: &Expression,
-    symbols: &mut HashMap<String, Value>,
-) -> Result<Value, Error> {
+pub fn evaluate(expression: &Expression, symbols: &mut Environment) -> Result<Value, Error> {
     match evaluate_expression(expression, symbols) {
         Ok(result) => Ok(result),
         Err(_) => process::exit(70),
     }
 }
 
-fn evaluate_expression(
-    expression: &Expression,
-    symbols: &mut HashMap<String, Value>,
-) -> Result<Value, Error> {
+fn evaluate_expression(expression: &Expression, symbols: &mut Environment) -> Result<Value, Error> {
     match expression {
         Expression::Primary(literal) => primary(literal, symbols),
         Expression::Unary(operator, expression) => unary(operator, expression, symbols),
@@ -51,9 +45,9 @@ fn evaluate_expression(
 fn assignment(
     identifier: &Primary,
     expression: &Expression,
-    symbols: &mut HashMap<String, Value>,
+    environment: &mut Environment,
 ) -> Result<Value, Error> {
-    let value = evaluate_expression(expression, symbols)?;
+    let value = evaluate_expression(expression, environment)?;
 
     let name = match identifier {
         Primary::Identifier(name) => name,
@@ -65,22 +59,12 @@ fn assignment(
         }
     };
 
-    match symbols.get_mut(name) {
-        Some(slot) => {
-            *slot = value.clone();
-        }
-        None => {
-            return Err(Error::RuntimeError(
-                1,
-                format!("Undefined variable '{}'", name),
-            ));
-        }
-    }
+    environment.assign(name, value.clone())?;
 
     Ok(value)
 }
 
-fn primary(primary: &Primary, symbols: &mut HashMap<String, Value>) -> Result<Value, Error> {
+fn primary(primary: &Primary, symbols: &mut Environment) -> Result<Value, Error> {
     match primary {
         Primary::Number(number) => Ok(Value::Number(number.to_owned())),
         Primary::String(string) => Ok(Value::String(string.to_string())),
@@ -92,7 +76,7 @@ fn primary(primary: &Primary, symbols: &mut HashMap<String, Value>) -> Result<Va
     }
 }
 
-fn variable(string: &str, symbols: &HashMap<String, Value>) -> Result<Value, Error> {
+fn variable(string: &str, symbols: &Environment) -> Result<Value, Error> {
     match symbols.get(string) {
         Some(value) => Ok(value.clone()),
         None => Err(Error::RuntimeError(1, "Unknown identifier".to_string())),
@@ -102,7 +86,7 @@ fn variable(string: &str, symbols: &HashMap<String, Value>) -> Result<Value, Err
 fn unary(
     unary: &Unary,
     expression: &Expression,
-    symbols: &mut HashMap<String, Value>,
+    symbols: &mut Environment,
 ) -> Result<Value, Error> {
     let expression = evaluate_expression(expression, symbols)?;
 
@@ -137,7 +121,7 @@ fn binary(
     left: &Expression,
     operator: &Operator,
     right: &Expression,
-    symbols: &mut HashMap<String, Value>,
+    symbols: &mut Environment,
 ) -> Result<Value, Error> {
     let left = evaluate_expression(left, symbols)?;
     let right = evaluate_expression(right, symbols)?;
