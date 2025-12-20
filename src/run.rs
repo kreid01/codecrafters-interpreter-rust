@@ -1,8 +1,8 @@
 use std::process;
 
-use crate::enums::expression::Expression;
+use crate::enums::error::Error;
 use crate::enums::statement::Statement;
-use crate::evaluator::evaluate;
+use crate::evaluator::{Value, evaluate};
 use crate::parser::parse_statements;
 
 pub fn run(filename: &str) {
@@ -12,21 +12,25 @@ pub fn run(filename: &str) {
         process::exit(65)
     }
 
+    let mut errors: Vec<Error> = Vec::new();
+    let mut values: Vec<Value> = Vec::new();
+
     for statement in statements {
         match statement {
-            Statement::Print(expression) => {
-                get_expression(expression);
-            }
-            Statement::Expression(expression) => {
-                get_expression(expression);
-            }
+            Statement::Print(expression) => match evaluate(&expression) {
+                Ok(val) => println!("{}", val),
+                Err(err) => {
+                    errors.push(err);
+                }
+            },
+            Statement::Expression(expression) => match evaluate(&expression) {
+                Ok(val) => {
+                    values.push(val);
+                }
+                Err(err) => {
+                    errors.push(err);
+                }
+            },
         }
-    }
-}
-
-fn get_expression(expr: Expression) {
-    match evaluate(&expr) {
-        Ok(val) => println!("{}", val),
-        Err(err) => println!("{}", err),
     }
 }
