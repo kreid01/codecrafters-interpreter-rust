@@ -64,38 +64,49 @@ fn statement(tokens: &mut TokenStream) -> Result<Statement, Error> {
 }
 
 fn declaration(tokens: &mut TokenStream) -> Result<Statement, Error> {
-    let next = match tokens.peek().cloned() {
-        Some(next) => next,
-        None => panic!("End of token stream"),
-    };
+    let identifier = get_identifier(tokens)?;
+    let next = peek(tokens);
 
-    let identifier = match next {
+    match next {
+        Token::Equal => {
+            tokens.advance();
+            let expression = expression_statement(tokens)?;
+            Ok(Statement::Declaration(identifier, expression))
+        }
+        Token::SemiColon => {
+            tokens.advance();
+            Ok(Statement::Declaration(
+                identifier,
+                Expression::Primary(Primary::Nil),
+            ))
+        }
+        _ => Err(Error::RuntimeError(
+            1,
+            "Expected declaration or semi colon after identifier".to_string(),
+        )),
+    }
+}
+
+fn get_identifier(tokens: &mut TokenStream) -> Result<String, Error> {
+    let next = peek(tokens);
+
+    match next {
         Token::Identifier(identifier) => {
             tokens.advance();
-            identifier
+            Ok(identifier)
         }
-        _ => {
-            return Err(Error::RuntimeError(
-                1,
-                "Expected equal after var".to_string(),
-            ));
-        }
-    };
-
-    if tokens.match_advance(&Token::Equal) {
-        let expression = expression_statement(tokens)?;
-        return Ok(Statement::Declaration(identifier, expression));
-    } else if tokens.match_advance(&Token::SemiColon) {
-        return Ok(Statement::Declaration(
-            identifier,
-            Expression::Primary(Primary::Nil),
-        ));
+        _ => Err(Error::RuntimeError(
+            1,
+            "Expected variable name after var".to_string(),
+        )),
     }
+}
 
-    Err(Error::RuntimeError(
-        1,
-        "Expected declaration or semi colon after identifier".to_string(),
-    ))
+fn peek(tokens: &mut TokenStream) -> Token {
+    match tokens.peek().cloned() {
+        Some(next) => next,
+        None => panic!("End of token stream"),
+    }
 }
 
 fn expression_statement(tokens: &mut TokenStream) -> Result<Expression, Error> {
@@ -103,15 +114,34 @@ fn expression_statement(tokens: &mut TokenStream) -> Result<Expression, Error> {
     if tokens.match_advance(&Token::SemiColon) {
         Ok(expression)
     } else {
-        Err(Error::ParseError(
-            1,
-            "Expect ';' after expression.".to_string(),
-        ))
+        let error = format!("Expect ';' after expression {}.", expression);
+        Err(Error::ParseError(1, error))
     }
 }
 
 fn expression(tokens: &mut TokenStream) -> Result<Expression, Error> {
-    equality(tokens)
+    assignment(tokens)
+}
+
+fn assignment(tokens: &mut TokenStream) -> Result<Expression, Error> {
+    let left = equality(tokens)?;
+
+    if tokens.peek_is(&Token::Equal) {
+        tokens.advance();
+        let right = assignment(tokens)?;
+
+        match left {
+            Expression::Primary(Primary::Identifier(name)) => {
+                return Ok(Expression::Assignment(
+                    Primary::Identifier(name),
+                    Box::new(right),
+                ));
+            }
+            _ => return Err(Error::ParseError(1, "Invalid assignment".to_string())),
+        }
+    }
+
+    Ok(left)
 }
 
 fn equality(tokens: &mut TokenStream) -> Result<Expression, Error> {
@@ -201,7 +231,7 @@ fn primary(tokens: &mut TokenStream) -> Result<Expression, Error> {
         Token::Nil => Ok(Expression::Primary(Primary::Nil)),
         Token::Number(_, ref number) => Ok(Expression::Primary(Primary::Number(*number))),
         Token::String(ref literal) => Ok(Expression::Primary(Primary::String(literal.to_string()))),
-        Token::Identifier(name) => Ok(Expression::Primary(Primary::Identififer(name))),
+        Token::Identifier(identifier) => Ok(Expression::Primary(Primary::Identifier(identifier))),
 
         Token::LeftParen => {
             let expr_inside = expression(tokens)?;

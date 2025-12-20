@@ -51,11 +51,11 @@ fn main() {
         }
         "evaluate" => {
             let (expressions, errors) = parse(filename);
-            let symbols: HashMap<String, Value> = HashMap::new();
+            let mut symbols: HashMap<String, Value> = HashMap::new();
             if_error_exit(!errors.is_empty(), 70);
 
             for e in expressions {
-                match evaluate(&e, &symbols) {
+                match evaluate(&e, &mut symbols) {
                     Ok(value) => println!("{}", value),
                     Err(_) => {
                         process::exit(65);

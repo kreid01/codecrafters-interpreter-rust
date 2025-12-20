@@ -7,6 +7,7 @@ pub enum Expression {
     Binary(Box<Expression>, Operator, Box<Expression>),
     Unary(Unary, Box<Expression>),
     Primary(Primary),
+    Assignment(Primary, Box<Expression>),
 }
 
 impl Display for Expression {
@@ -21,6 +22,9 @@ impl Display for Expression {
             Expression::Binary(left, op, right) => {
                 write!(f, "({} {} {})", op, left, right)
             }
+            Expression::Assignment(identififer, assignment) => {
+                write!(f, "{} = {}", identififer, assignment)
+            }
         }
     }
 }
@@ -33,7 +37,7 @@ pub enum Primary {
     False,
     Nil,
     Grouping(Box<Expression>),
-    Identififer(String),
+    Identifier(String),
 }
 
 impl Display for Primary {
@@ -44,7 +48,7 @@ impl Display for Primary {
             Primary::True => "true".to_string(),
             Primary::False => "false".to_string(),
             Primary::Nil => "nil".to_string(),
-            Primary::Identififer(name) => name.to_string(),
+            Primary::Identifier(name) => name.to_string(),
             Primary::Grouping(expr) => format!("(group {})", expr),
         };
 
@@ -71,7 +75,6 @@ impl Display for Unary {
 
 #[derive(Debug, PartialEq)]
 pub enum Operator {
-    Equal,
     EqualEqual,
     BangEqual,
     Less,
@@ -87,7 +90,6 @@ pub enum Operator {
 impl Display for Operator {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> fmt::Result {
         let operator = match self {
-            Operator::Equal => "=",
             Operator::EqualEqual => "==",
             Operator::BangEqual => "!=",
             Operator::Less => "<",

@@ -1,5 +1,6 @@
 use std::fmt::{self, Display};
 
+#[derive(Debug)]
 pub enum Error {
     ParseError(usize, String),
     RuntimeError(usize, String),

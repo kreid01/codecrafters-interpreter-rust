@@ -13,28 +13,24 @@ pub fn run(filename: &str) {
         process::exit(65)
     }
 
-    for e in errors {
-        println!("{}", e);
-    }
-
     let mut errors: Vec<Error> = Vec::new();
     let mut symbols: HashMap<String, Value> = HashMap::new();
 
     for statement in statements {
         match statement {
-            Statement::Print(expression) => match evaluate(&expression, &symbols) {
+            Statement::Print(expression) => match evaluate(&expression, &mut symbols) {
                 Ok(val) => println!("{}", val),
                 Err(err) => {
                     errors.push(err);
                 }
             },
-            Statement::Expression(expression) => match evaluate(&expression, &symbols) {
+            Statement::Expression(expression) => match evaluate(&expression, &mut symbols) {
                 Ok(_val) => {}
                 Err(err) => {
                     errors.push(err);
                 }
             },
-            Statement::Declaration(name, expression) => match evaluate(&expression, &symbols) {
+            Statement::Declaration(name, expression) => match evaluate(&expression, &mut symbols) {
                 Ok(val) => {
                     symbols.insert(name, val);
                 }

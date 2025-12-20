@@ -1,6 +1,5 @@
 use crate::enums::error::Error;
 use crate::enums::expression::{Expression, Operator, Primary, Unary};
-use core::panic;
 use std::collections::HashMap;
 use std::process;
 
@@ -25,7 +24,10 @@ impl Display for Value {
     }
 }
 
-pub fn evaluate(expression: &Expression, symbols: &HashMap<String, Value>) -> Result<Value, Error> {
+pub fn evaluate(
+    expression: &Expression,
+    symbols: &mut HashMap<String, Value>,
+) -> Result<Value, Error> {
     match evaluate_expression(expression, symbols) {
         Ok(result) => Ok(result),
         Err(_) => process::exit(70),
@@ -34,16 +36,51 @@ pub fn evaluate(expression: &Expression, symbols: &HashMap<String, Value>) -> Re
 
 fn evaluate_expression(
     expression: &Expression,
-    symbols: &HashMap<String, Value>,
+    symbols: &mut HashMap<String, Value>,
 ) -> Result<Value, Error> {
     match expression {
         Expression::Primary(literal) => primary(literal, symbols),
         Expression::Unary(operator, expression) => unary(operator, expression, symbols),
         Expression::Binary(left, operator, right) => binary(left, operator, right, symbols),
+        Expression::Assignment(identifier, expression) => {
+            assignment(identifier, expression, symbols)
+        }
     }
 }
 
-fn primary(primary: &Primary, symbols: &HashMap<String, Value>) -> Result<Value, Error> {
+fn assignment(
+    identifier: &Primary,
+    expression: &Expression,
+    symbols: &mut HashMap<String, Value>,
+) -> Result<Value, Error> {
+    let value = evaluate_expression(expression, symbols)?;
+
+    let name = match identifier {
+        Primary::Identifier(name) => name,
+        _ => {
+            return Err(Error::RuntimeError(
+                1,
+                "Invalid assignment target".to_string(),
+            ));
+        }
+    };
+
+    match symbols.get_mut(name) {
+        Some(slot) => {
+            *slot = value.clone();
+        }
+        None => {
+            return Err(Error::RuntimeError(
+                1,
+                format!("Undefined variable '{}'", name),
+            ));
+        }
+    }
+
+    Ok(value)
+}
+
+fn primary(primary: &Primary, symbols: &mut HashMap<String, Value>) -> Result<Value, Error> {
     match primary {
         Primary::Number(number) => Ok(Value::Number(number.to_owned())),
         Primary::String(string) => Ok(Value::String(string.to_string())),
@@ -51,8 +88,7 @@ fn primary(primary: &Primary, symbols: &HashMap<String, Value>) -> Result<Value,
         Primary::False => Ok(Value::Boolean(false)),
         Primary::Nil => Ok(Value::Nil),
         Primary::Grouping(expression) => evaluate_expression(expression, symbols),
-        Primary::Identififer(identifier) => variable(identifier, symbols),
-        // _ => Err(Error::RuntimeError(1, "Unknown expressions".to_string())),
+        Primary::Identifier(identifier) => variable(identifier, symbols),
     }
 }
 
@@ -66,7 +102,7 @@ fn variable(string: &str, symbols: &HashMap<String, Value>) -> Result<Value, Err
 fn unary(
     unary: &Unary,
     expression: &Expression,
-    symbols: &HashMap<String, Value>,
+    symbols: &mut HashMap<String, Value>,
 ) -> Result<Value, Error> {
     let expression = evaluate_expression(expression, symbols)?;
 
@@ -101,7 +137,7 @@ fn binary(
     left: &Expression,
     operator: &Operator,
     right: &Expression,
-    symbols: &HashMap<String, Value>,
+    symbols: &mut HashMap<String, Value>,
 ) -> Result<Value, Error> {
     let left = evaluate_expression(left, symbols)?;
     let right = evaluate_expression(right, symbols)?;
@@ -187,6 +223,5 @@ fn arithmetic(left: f64, operator: &Operator, right: f64) -> Result<Value, Error
         Operator::GreaterEqual => Ok(Value::Boolean(left >= right)),
         Operator::EqualEqual => Ok(Value::Boolean(left == right)),
         Operator::BangEqual => Ok(Value::Boolean(left != right)),
-        _ => panic!("Not implemented operator"),
     }
 }
