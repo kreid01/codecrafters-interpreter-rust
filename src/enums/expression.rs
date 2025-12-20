@@ -2,7 +2,7 @@ use std::fmt::{self, Display};
 
 use crate::enums::token::format_number;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Expression {
     Binary(Box<Expression>, Operator, Box<Expression>),
     Unary(Unary, Box<Expression>),
@@ -29,7 +29,7 @@ impl Display for Expression {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Primary {
     Number(f64),
     String(String),
@@ -56,7 +56,7 @@ impl Display for Primary {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Unary {
     Minus,
     Bang,
@@ -73,7 +73,7 @@ impl Display for Unary {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Operator {
     EqualEqual,
     BangEqual,

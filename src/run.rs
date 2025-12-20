@@ -72,5 +72,10 @@ fn evaluate_statement(
                 evaluate_statement(*else_stmt, errors, environment);
             }
         }
+        Statement::While(condition, statement) => {
+            while truthy(evaluate(&condition, environment).unwrap()) {
+                evaluate_statement(*statement.clone(), errors, environment);
+            }
+        }
     }
 }

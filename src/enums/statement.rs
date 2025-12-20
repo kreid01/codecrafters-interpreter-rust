@@ -2,13 +2,14 @@ use std::fmt::{self, Display};
 
 use crate::enums::expression::Expression;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Statement {
     Block(Vec<Statement>),
     Declaration(String, Expression),
     Expression(Expression),
     IfElse(Expression, Box<Statement>, Option<Box<Statement>>),
     Print(Expression),
+    While(Expression, Box<Statement>),
 }
 
 impl Display for Statement {
@@ -22,6 +23,9 @@ impl Display for Statement {
             }
             Statement::IfElse(conditional, if_stmt, _) => {
                 write!(fmt, "if ({}) {} else ", conditional, if_stmt,)
+            }
+            Statement::While(conditional, statement) => {
+                write!(fmt, "while ({}) {} ", conditional, statement)
             }
         }
     }
