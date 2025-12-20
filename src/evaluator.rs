@@ -1,15 +1,17 @@
 use crate::enums::error::Error;
 use crate::enums::expression::{Expression, Operator, Primary, Unary};
 use core::panic;
+use std::collections::HashMap;
 use std::process;
 
 use std::fmt::{self, Display};
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum Value {
     String(String),
     Number(f64),
     Boolean(bool),
+    Nil,
 }
 
 impl Display for Value {
@@ -18,40 +20,55 @@ impl Display for Value {
             Value::String(string) => write!(fmt, "{}", string),
             Value::Number(number) => write!(fmt, "{}", number),
             Value::Boolean(bool) => write!(fmt, "{}", bool),
+            Value::Nil => write!(fmt, "nil"),
         }
     }
 }
 
-pub fn evaluate(expression: &Expression) -> Result<Value, Error> {
-    match evaluate_expression(expression) {
+pub fn evaluate(expression: &Expression, symbols: &HashMap<String, Value>) -> Result<Value, Error> {
+    match evaluate_expression(expression, symbols) {
         Ok(result) => Ok(result),
-        Err(_) => {
-            process::exit(70);
-        }
+        Err(_) => process::exit(70),
     }
 }
 
-fn evaluate_expression(expression: &Expression) -> Result<Value, Error> {
+fn evaluate_expression(
+    expression: &Expression,
+    symbols: &HashMap<String, Value>,
+) -> Result<Value, Error> {
     match expression {
-        Expression::Primary(literal) => primary(literal),
-        Expression::Unary(operator, expression) => unary(operator, expression),
-        Expression::Binary(left, operator, right) => binary(left, operator, right),
+        Expression::Primary(literal) => primary(literal, symbols),
+        Expression::Unary(operator, expression) => unary(operator, expression, symbols),
+        Expression::Binary(left, operator, right) => binary(left, operator, right, symbols),
     }
 }
 
-fn primary(primary: &Primary) -> Result<Value, Error> {
+fn primary(primary: &Primary, symbols: &HashMap<String, Value>) -> Result<Value, Error> {
     match primary {
         Primary::Number(number) => Ok(Value::Number(number.to_owned())),
         Primary::String(string) => Ok(Value::String(string.to_string())),
         Primary::True => Ok(Value::Boolean(true)),
         Primary::False => Ok(Value::Boolean(false)),
-        Primary::Grouping(expression) => evaluate_expression(expression),
-        _ => Ok(Value::String(primary.to_string())),
+        Primary::Nil => Ok(Value::Nil),
+        Primary::Grouping(expression) => evaluate_expression(expression, symbols),
+        Primary::Identififer(identifier) => variable(identifier, symbols),
+        // _ => Err(Error::RuntimeError(1, "Unknown expressions".to_string())),
     }
 }
 
-fn unary(unary: &Unary, expression: &Expression) -> Result<Value, Error> {
-    let expression = evaluate_expression(expression)?;
+fn variable(string: &str, symbols: &HashMap<String, Value>) -> Result<Value, Error> {
+    match symbols.get(string) {
+        Some(value) => Ok(value.clone()),
+        None => Err(Error::RuntimeError(1, "Unknown identifier".to_string())),
+    }
+}
+
+fn unary(
+    unary: &Unary,
+    expression: &Expression,
+    symbols: &HashMap<String, Value>,
+) -> Result<Value, Error> {
+    let expression = evaluate_expression(expression, symbols)?;
 
     match unary {
         Unary::Minus => minus(expression),
@@ -80,9 +97,14 @@ fn check_bang(expression: Value) -> Result<Value, Error> {
     Ok(statement)
 }
 
-fn binary(left: &Expression, operator: &Operator, right: &Expression) -> Result<Value, Error> {
-    let left = evaluate_expression(left)?;
-    let right = evaluate_expression(right)?;
+fn binary(
+    left: &Expression,
+    operator: &Operator,
+    right: &Expression,
+    symbols: &HashMap<String, Value>,
+) -> Result<Value, Error> {
+    let left = evaluate_expression(left, symbols)?;
+    let right = evaluate_expression(right, symbols)?;
 
     let left = check_double_negative(left);
     let right = check_double_negative(right);

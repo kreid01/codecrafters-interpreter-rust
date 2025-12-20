@@ -1,7 +1,8 @@
+use std::collections::HashMap;
 use std::fmt::Display;
 use std::{env, process};
 
-use crate::evaluator::evaluate;
+use crate::evaluator::{Value, evaluate};
 use crate::parser::parse;
 use crate::run::run;
 use crate::tokenizer::tokenize;
@@ -50,10 +51,11 @@ fn main() {
         }
         "evaluate" => {
             let (expressions, errors) = parse(filename);
+            let symbols: HashMap<String, Value> = HashMap::new();
             if_error_exit(!errors.is_empty(), 70);
 
             for e in expressions {
-                match evaluate(&e) {
+                match evaluate(&e, &symbols) {
                     Ok(value) => println!("{}", value),
                     Err(_) => {
                         process::exit(65);

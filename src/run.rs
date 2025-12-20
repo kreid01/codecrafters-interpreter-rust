@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::process;
 
 use crate::enums::error::Error;
@@ -12,20 +13,30 @@ pub fn run(filename: &str) {
         process::exit(65)
     }
 
+    for e in errors {
+        println!("{}", e);
+    }
+
     let mut errors: Vec<Error> = Vec::new();
-    let mut values: Vec<Value> = Vec::new();
+    let mut symbols: HashMap<String, Value> = HashMap::new();
 
     for statement in statements {
         match statement {
-            Statement::Print(expression) => match evaluate(&expression) {
+            Statement::Print(expression) => match evaluate(&expression, &symbols) {
                 Ok(val) => println!("{}", val),
                 Err(err) => {
                     errors.push(err);
                 }
             },
-            Statement::Expression(expression) => match evaluate(&expression) {
+            Statement::Expression(expression) => match evaluate(&expression, &symbols) {
+                Ok(_val) => {}
+                Err(err) => {
+                    errors.push(err);
+                }
+            },
+            Statement::Declaration(name, expression) => match evaluate(&expression, &symbols) {
                 Ok(val) => {
-                    values.push(val);
+                    symbols.insert(name, val);
                 }
                 Err(err) => {
                     errors.push(err);

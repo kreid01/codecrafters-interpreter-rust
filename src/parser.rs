@@ -53,10 +53,44 @@ fn statement(tokens: &mut TokenStream) -> Result<Statement, Error> {
         return Ok(Statement::Print(expression));
     }
 
+    if tokens.match_advance(&Token::Var) {
+        return declaration(tokens);
+    }
+
     match expression_statement(tokens) {
         Ok(expression) => Ok(Statement::Expression(expression)),
         Err(err) => Err(err),
     }
+}
+
+fn declaration(tokens: &mut TokenStream) -> Result<Statement, Error> {
+    let next = match tokens.peek().cloned() {
+        Some(next) => next,
+        None => panic!("End of token stream"),
+    };
+
+    let identifier = match next {
+        Token::Identifier(identifier) => {
+            tokens.advance();
+            identifier
+        }
+        _ => {
+            return Err(Error::RuntimeError(
+                1,
+                "Expected equal after var".to_string(),
+            ));
+        }
+    };
+
+    if tokens.match_advance(&Token::Equal) {
+        let expression = expression_statement(tokens)?;
+        return Ok(Statement::Declaration(identifier, expression));
+    }
+
+    Err(Error::RuntimeError(
+        1,
+        "Expected declaration after var".to_string(),
+    ))
 }
 
 fn expression_statement(tokens: &mut TokenStream) -> Result<Expression, Error> {
@@ -162,6 +196,7 @@ fn primary(tokens: &mut TokenStream) -> Result<Expression, Error> {
         Token::Nil => Ok(Expression::Primary(Primary::Nil)),
         Token::Number(_, ref number) => Ok(Expression::Primary(Primary::Number(*number))),
         Token::String(ref literal) => Ok(Expression::Primary(Primary::String(literal.to_string()))),
+        Token::Identifier(name) => Ok(Expression::Primary(Primary::Identififer(name))),
 
         Token::LeftParen => {
             let expr_inside = expression(tokens)?;

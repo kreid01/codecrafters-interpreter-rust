@@ -4,6 +4,7 @@ use crate::enums::expression::Expression;
 
 #[derive(Debug)]
 pub enum Statement {
+    Declaration(String, Expression),
     Expression(Expression),
     Print(Expression),
 }
@@ -13,6 +14,9 @@ impl Display for Statement {
         match self {
             Statement::Print(expression) => write!(fmt, "{}", expression),
             Statement::Expression(expression) => write!(fmt, "{}", expression),
+            Statement::Declaration(string, expression) => {
+                write!(fmt, "{} - {}", string, expression)
+            }
         }
     }
 }
