@@ -138,6 +138,15 @@ fn binary(
         }
     }
 
+    if matches!(operator, Operator::And) {
+        if !truthy(left.clone()) {
+            return Ok(left);
+        } else {
+            let right = evaluate_expression(right, symbols)?;
+            return Ok(right);
+        }
+    }
+
     let right = evaluate_expression(right, symbols)?;
 
     match operator {
@@ -196,7 +205,7 @@ fn equal(left: &Value, right: &Value) -> bool {
 
 pub fn truthy(value: Value) -> bool {
     match value {
-        Value::String(string) => !string.is_empty(),
+        Value::String(_) => true,
         Value::Boolean(bool) => bool,
         Value::Number(number) => number != 0.0,
         Value::Nil => false,
