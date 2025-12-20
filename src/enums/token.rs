@@ -67,6 +67,7 @@ pub enum Token {
     Number(String, f64),
     Error(char, usize),
     ErrorString(String, usize),
+    EOF,
 
     And,
     Class,
@@ -145,6 +146,7 @@ impl Display for Token {
             Self::ErrorString(_, line) => {
                 format!("[line {}] Error: Unterminated string.", &line)
             }
+            Self::EOF => "EOF null".to_string(),
             Self::And => format!("{} {} null", "AND", "and"),
             Self::Class => format!("{} {} null", "CLASS", "class"),
             Self::Else => format!("{} {} null", "ELSE", "else"),

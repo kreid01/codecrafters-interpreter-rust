@@ -1,6 +1,7 @@
 use crate::enums::error::Error;
-use crate::enums::expression::{Expression, ExpressionStream, Operator, Primary, Unary};
+use crate::enums::expression::{Expression, Operator, Primary, Unary};
 use core::panic;
+use std::process;
 
 use std::fmt::{self, Display};
 
@@ -21,51 +22,40 @@ impl Display for Value {
     }
 }
 
-pub fn evaluate(expressions: Expression) -> Result<Value, Error> {
-    println!("{:?}", expressions);
-    let mut stream = ExpressionStream { expressions };
-
-    match evaluate_expression(stream.advance().expect("Tokens to exist"), &mut stream) {
+pub fn evaluate(expression: &Expression) -> Result<Value, Error> {
+    match evaluate_expression(expression) {
         Ok(result) => Ok(result),
-        Err(error) => {
-            Err(error)
-            // process::exit(70);
+        Err(_) => {
+            process::exit(70);
         }
     }
 }
 
-fn evaluate_expression(
-    expression: Expression,
-    stream: &mut ExpressionStream,
-) -> Result<Value, Error> {
+fn evaluate_expression(expression: &Expression) -> Result<Value, Error> {
     match expression {
-        Expression::Primary(literal) => primary(literal, stream),
-        Expression::Unary(operator, expression) => unary(operator, *expression, stream),
-        Expression::Binary(left, operator, right) => binary(*left, operator, *right, stream),
+        Expression::Primary(literal) => primary(literal),
+        Expression::Unary(operator, expression) => unary(operator, expression),
+        Expression::Binary(left, operator, right) => binary(left, operator, right),
     }
 }
 
-fn primary(primary: Primary, stream: &mut ExpressionStream) -> Result<Value, Error> {
+fn primary(primary: &Primary) -> Result<Value, Error> {
     match primary {
-        Primary::Number(number) => Ok(Value::Number(number)),
-        Primary::String(string) => Ok(Value::String(string)),
+        Primary::Number(number) => Ok(Value::Number(number.to_owned())),
+        Primary::String(string) => Ok(Value::String(string.to_string())),
         Primary::True => Ok(Value::Boolean(true)),
         Primary::False => Ok(Value::Boolean(false)),
-        Primary::Grouping(expression) => evaluate_expression(*expression, stream),
+        Primary::Grouping(expression) => evaluate_expression(expression),
         _ => Ok(Value::String(primary.to_string())),
     }
 }
 
-fn unary(
-    unary: Unary,
-    expression: Expression,
-    stream: &mut ExpressionStream,
-) -> Result<Value, Error> {
-    let expression = evaluate_expression(expression, stream)?;
+fn unary(unary: &Unary, expression: &Expression) -> Result<Value, Error> {
+    let expression = evaluate_expression(expression)?;
 
     match unary {
         Unary::Minus => minus(expression),
-        Unary::Bang => check_bang(expression, stream),
+        Unary::Bang => check_bang(expression),
     }
 }
 
@@ -79,15 +69,7 @@ fn minus(statement: Value) -> Result<Value, Error> {
     }
 }
 
-fn check_bang(expression: Value, stream: &mut ExpressionStream) -> Result<Value, Error> {
-    let expression = match stream.peek() {
-        Some(Expression::Unary(Unary::Bang, _)) => {
-            stream.advance();
-            return check_bang(expression, stream);
-        }
-        _ => expression,
-    };
-
+fn check_bang(expression: Value) -> Result<Value, Error> {
     let statement = match expression.to_string().as_str() {
         "true" => Value::Boolean(false),
         "nil" => Value::Boolean(true),
@@ -98,14 +80,9 @@ fn check_bang(expression: Value, stream: &mut ExpressionStream) -> Result<Value,
     Ok(statement)
 }
 
-fn binary(
-    left: Expression,
-    operator: Operator,
-    right: Expression,
-    stream: &mut ExpressionStream,
-) -> Result<Value, Error> {
-    let left = evaluate_expression(left, stream)?;
-    let right = evaluate_expression(right, stream)?;
+fn binary(left: &Expression, operator: &Operator, right: &Expression) -> Result<Value, Error> {
+    let left = evaluate_expression(left)?;
+    let right = evaluate_expression(right)?;
 
     let left = check_double_negative(left);
     let right = check_double_negative(right);
@@ -116,7 +93,7 @@ fn binary(
     }
 }
 
-fn operations(left: Value, operator: Operator, right: Value) -> Result<Value, Error> {
+fn operations(left: Value, operator: &Operator, right: Value) -> Result<Value, Error> {
     match operator {
         Operator::Plus => plus(&left, &right),
         Operator::BangEqual => Ok(Value::Boolean(left.to_string() != right.to_string())),
@@ -176,7 +153,7 @@ fn check_double_negative(statement: Value) -> Value {
     }
 }
 
-fn arithmetic(left: f64, operator: Operator, right: f64) -> Result<Value, Error> {
+fn arithmetic(left: f64, operator: &Operator, right: f64) -> Result<Value, Error> {
     match operator {
         Operator::Plus => Ok(Value::Number(left + right)),
         Operator::Minus => Ok(Value::Number(left - right)),

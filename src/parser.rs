@@ -4,10 +4,30 @@ use crate::enums::statement::Statement;
 use crate::enums::token::{Token, TokenStream};
 use crate::tokenizer::tokenize;
 use std::collections::VecDeque;
-use std::process;
 
-pub fn parse(filename: &str) -> (Vec<Statement>, Vec<Error>) {
-    let (tokens, token_errors) = tokenize(filename);
+pub fn parse(filename: &str) -> (Vec<Expression>, Vec<Error>) {
+    let (tokens, _) = tokenize(filename);
+
+    let mut expressions: Vec<Expression> = Vec::new();
+    let tokens: VecDeque<Token> = tokens.into();
+    let mut stream = TokenStream { tokens };
+    let mut errors: Vec<Error> = Vec::new();
+
+    while !stream.is_at_end() {
+        match expression(&mut stream) {
+            Ok(expression) => expressions.push(expression),
+            Err(err) => {
+                errors.push(err);
+                break;
+            }
+        }
+    }
+
+    (expressions, errors)
+}
+
+pub fn parse_statements(filename: &str) -> (Vec<Statement>, Vec<Error>) {
+    let (tokens, _) = tokenize(filename);
 
     let mut statements: Vec<Statement> = Vec::new();
     let tokens: VecDeque<Token> = tokens.into();
@@ -24,28 +44,25 @@ pub fn parse(filename: &str) -> (Vec<Statement>, Vec<Error>) {
         }
     }
 
-    if !token_errors.is_empty() {
-        process::exit(65)
-    }
-
     (statements, errors)
 }
 
 fn statement(tokens: &mut TokenStream) -> Result<Statement, Error> {
     if tokens.match_advance(&Token::Print) {
-        let expression = expression(tokens)?;
+        let expression = expression_statement(tokens)?;
         return Ok(Statement::Print(expression));
     }
 
-    match expression(tokens) {
+    match expression_statement(tokens) {
         Ok(expression) => Ok(Statement::Expression(expression)),
         Err(err) => Err(err),
     }
 }
 
-fn expression(tokens: &mut TokenStream) -> Result<Expression, Error> {
-    let expression = equality(tokens)?;
+fn expression_statement(tokens: &mut TokenStream) -> Result<Expression, Error> {
+    let expression = expression(tokens)?;
     if tokens.peek_is(&Token::SemiColon) {
+        tokens.advance();
         return Ok(expression);
     }
 
@@ -53,6 +70,10 @@ fn expression(tokens: &mut TokenStream) -> Result<Expression, Error> {
         1,
         "Expect ';' after expression.".to_string(),
     ))
+}
+
+fn expression(tokens: &mut TokenStream) -> Result<Expression, Error> {
+    equality(tokens)
 }
 
 fn equality(tokens: &mut TokenStream) -> Result<Expression, Error> {
@@ -156,7 +177,7 @@ fn primary(tokens: &mut TokenStream) -> Result<Expression, Error> {
         }
 
         _ => {
-            let error = Error::ParseError(1, "Unknown token".to_string());
+            let error = Error::ParseError(1, format!("Unknown token {}", token));
             Err(error)
         }
     }

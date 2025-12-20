@@ -1,11 +1,12 @@
-use std::env;
 use std::io::stdin;
+use std::{env, process};
 
-use crate::evaluator::evaluate;
+use crate::enums::expression::Expression;
+use crate::enums::statement::Statement;
+use crate::evaluator::{Value, evaluate};
 use crate::parser::parse;
 use crate::run::run;
 use crate::tokenizer::tokenize;
-use crate::utils::{print_output, print_tokenizer_output};
 
 pub mod enums;
 mod evaluator;
@@ -23,7 +24,7 @@ fn main() {
     // stdin.read_line(&mut input).unwrap();
     // println!("{}", input);
     //
-    // execute(&input);
+    // run(&input);
 
     let args: Vec<String> = env::args().collect();
     if args.len() < 3 {
@@ -35,17 +36,55 @@ fn main() {
 
     match command.as_str() {
         "tokenize" => {
+            eprintln!("Logs from your program will appear here!");
             let (tokens, errors) = tokenize(filename);
-            print_tokenizer_output(tokens, errors);
+
+            let has_errors = !errors.is_empty();
+
+            for e in errors {
+                eprintln!("{}", e)
+            }
+
+            for token in tokens {
+                println!("{}", token)
+            }
+
+            println!("EOF  null");
+
+            if has_errors {
+                process::exit(65)
+            }
         }
         "parse" => {
-            let (ast, errors) = parse(filename);
-            print_output(ast.iter().map(|x| x.to_string()).collect(), errors, 65);
+            let (_, errors) = tokenize(filename);
+
+            if !errors.is_empty() {
+                process::exit(65)
+            }
+
+            let (expressions, errors) = parse(filename);
+
+            if !errors.is_empty() {
+                process::exit(65);
+            }
+
+            for e in expressions {
+                println!("{}", e)
+            }
         }
         "evaluate" => {
-            // let (statements, _) = parse(filename);
-            // let (output, errors) = evaluate(statements);
-            // print_output(output.iter().map(|x| x.to_string()).collect(), errors, 65);
+            let (expressions, errors) = parse(filename);
+
+            if !errors.is_empty() {
+                process::exit(70);
+            }
+
+            for e in expressions {
+                match evaluate(&e) {
+                    Ok(value) => println!("{}", value),
+                    Err(_) => process::exit(65),
+                }
+            }
         }
         "run" => run(filename),
         _ => {
