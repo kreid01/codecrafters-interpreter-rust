@@ -1,64 +1,10 @@
-use std::collections::HashMap;
 use std::process;
 
+use crate::enums::environment::Environment;
 use crate::enums::error::Error;
 use crate::enums::statement::Statement;
 use crate::evaluator::{Value, evaluate};
 use crate::parser::parse_statements;
-
-#[derive(Debug)]
-pub struct Environment {
-    symbols: HashMap<String, Value>,
-    enclosing: Option<Box<Environment>>,
-}
-
-impl Environment {
-    pub fn new() -> Self {
-        Environment {
-            symbols: HashMap::new(),
-            enclosing: None,
-        }
-    }
-
-    pub fn with_enclosing(enclosing: Environment) -> Self {
-        Environment {
-            symbols: HashMap::new(),
-            enclosing: Some(Box::new(enclosing)),
-        }
-    }
-
-    pub fn define(&mut self, name: String, value: Value) {
-        self.symbols.insert(name, value);
-    }
-
-    pub fn get(&self, name: &str) -> Option<Value> {
-        if let Some(v) = self.symbols.get(name) {
-            return Some(v.clone());
-        }
-
-        if let Some(ref parent) = self.enclosing {
-            return parent.get(name);
-        }
-
-        None
-    }
-
-    pub fn assign(&mut self, name: &str, value: Value) -> Result<(), Error> {
-        if self.symbols.contains_key(name) {
-            self.symbols.insert(name.to_string(), value);
-            return Ok(());
-        }
-
-        if let Some(ref mut parent) = self.enclosing {
-            return parent.assign(name, value);
-        }
-
-        Err(Error::RuntimeError(
-            1,
-            format!("Undefined variable '{}'", name),
-        ))
-    }
-}
 
 pub fn run(filename: &str) {
     let (statements, errors) = parse_statements(filename);
@@ -79,30 +25,61 @@ fn evaluate_statements(
     environment: &mut Environment,
 ) {
     for statement in statements {
-        match statement {
-            Statement::Print(expression) => match evaluate(&expression, environment) {
-                Ok(val) => println!("{}", val),
-                Err(err) => errors.push(err),
-            },
+        evaluate_statement(statement, errors, environment);
+    }
+}
 
-            Statement::Expression(expression) => {
-                if let Err(err) = evaluate(&expression, environment) {
-                    errors.push(err);
-                }
+fn evaluate_statement(
+    statement: Statement,
+    errors: &mut Vec<Error>,
+    environment: &mut Environment,
+) {
+    match statement {
+        Statement::Print(expression) => match evaluate(&expression, environment) {
+            Ok(val) => println!("{}", val),
+            Err(err) => errors.push(err),
+        },
+
+        Statement::Expression(expression) => {
+            if let Err(err) = evaluate(&expression, environment) {
+                errors.push(err);
             }
+        }
 
-            Statement::Declaration(name, expression) => match evaluate(&expression, environment) {
-                Ok(val) => environment.define(name, val),
-                Err(err) => errors.push(err),
-            },
+        Statement::Declaration(name, expression) => match evaluate(&expression, environment) {
+            Ok(val) => environment.define(name, val),
+            Err(err) => errors.push(err),
+        },
 
-            Statement::Block(statements) => {
-                let mut block_env =
-                    Environment::with_enclosing(std::mem::replace(environment, Environment::new()));
+        Statement::Block(statements) => {
+            let mut block_env =
+                Environment::with_enclosing(std::mem::replace(environment, Environment::new()));
 
-                evaluate_statements(statements, errors, &mut block_env);
+            evaluate_statements(statements, errors, &mut block_env);
 
-                *environment = *block_env.enclosing.unwrap();
+            *environment = *block_env.enclosing.unwrap();
+        }
+
+        Statement::IfElse(condition, if_stmt, else_stmt) => {
+            let condition = match evaluate(&condition, environment) {
+                Ok(val) => val,
+                Err(err) => return errors.push(err),
+            };
+
+            let condition = match condition {
+                Value::Boolean(bool) => bool,
+                _ => {
+                    return errors.push(Error::RuntimeError(
+                        1,
+                        "Only booleans can be conditional expression".to_string(),
+                    ));
+                }
+            };
+
+            if condition {
+                evaluate_statement(*if_stmt, errors, environment);
+            } else if let Some(else_stmt) = else_stmt {
+                evaluate_statement(*else_stmt, errors, environment);
             }
         }
     }

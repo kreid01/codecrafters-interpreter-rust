@@ -67,9 +67,11 @@ fn block(tokens: &mut TokenStream) -> Result<Statement, Error> {
 
 fn statement(tokens: &mut TokenStream) -> Result<Statement, Error> {
     if tokens.match_advance(&Token::Print) {
-        let expr = expression(tokens)?;
-        tokens.consume(&Token::SemiColon, "Expected ';' after value.")?;
-        return Ok(Statement::Print(expr));
+        return print_statement(tokens);
+    }
+
+    if tokens.match_advance(&Token::If) {
+        return if_statement(tokens);
     }
 
     if tokens.match_advance(&Token::Var) {
@@ -79,6 +81,27 @@ fn statement(tokens: &mut TokenStream) -> Result<Statement, Error> {
     let expr = expression(tokens)?;
     tokens.consume(&Token::SemiColon, "Expected ';' after expression.")?;
     Ok(Statement::Expression(expr))
+}
+
+fn print_statement(tokens: &mut TokenStream) -> Result<Statement, Error> {
+    let expr = expression(tokens)?;
+    tokens.consume(&Token::SemiColon, "Expected ';' after value.")?;
+    Ok(Statement::Print(expr))
+}
+
+fn if_statement(tokens: &mut TokenStream) -> Result<Statement, Error> {
+    tokens.consume(&Token::LeftParen, "Expected '(' after if.")?;
+    let expr = expression(tokens)?;
+    tokens.consume(&Token::RightParen, "Expected ')' after conditional.")?;
+
+    let if_stmt = block(tokens)?;
+
+    let else_stmd = match tokens.match_advance(&Token::Else) {
+        true => Some(Box::new(block(tokens)?)),
+        false => None,
+    };
+
+    Ok(Statement::IfElse(expr, Box::new(if_stmt), else_stmd))
 }
 
 fn var_declaration(tokens: &mut TokenStream) -> Result<Statement, Error> {

@@ -1,11 +1,11 @@
-use std::collections::HashMap;
-use std::fmt::Display;
 use std::{env, process};
 
-use crate::evaluator::{Value, evaluate};
+use crate::enums::environment::Environment;
+use crate::evaluator::evaluate;
 use crate::parser::parse;
-use crate::run::{Environment, run};
+use crate::run::run;
 use crate::tokenizer::tokenize;
+use crate::utils::{if_error_exit, print};
 
 pub mod enums;
 mod evaluator;
@@ -67,20 +67,5 @@ fn main() {
         _ => {
             eprintln!("Unknown command: {}", command);
         }
-    }
-}
-
-fn if_error_exit(errors: bool, code: i32) {
-    if errors {
-        process::exit(code);
-    }
-}
-
-fn print<T>(output: Vec<T>)
-where
-    T: Display,
-{
-    for x in output {
-        println!("{}", x);
     }
 }

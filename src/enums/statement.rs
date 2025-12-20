@@ -7,6 +7,7 @@ pub enum Statement {
     Block(Vec<Statement>),
     Declaration(String, Expression),
     Expression(Expression),
+    IfElse(Expression, Box<Statement>, Option<Box<Statement>>),
     Print(Expression),
 }
 
@@ -18,6 +19,9 @@ impl Display for Statement {
             Statement::Expression(expression) => write!(fmt, "{}", expression),
             Statement::Declaration(string, expression) => {
                 write!(fmt, "{} - {}", string, expression)
+            }
+            Statement::IfElse(conditional, if_stmt, _) => {
+                write!(fmt, "if ({}) {} else ", conditional, if_stmt,)
             }
         }
     }

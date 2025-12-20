@@ -1,19 +1,9 @@
-var bar = "global bar";
-var baz = "global baz";
-var foo = "global foo";
- {
-   var bar = "outer bar";
-   var baz = "outer baz";
-   {
-     var bar = "inner bar";
-     print bar;
-     print baz;
-     print foo;
-   }
-   print bar;
-   print baz;
-   print foo;
- }
- print bar;
- print baz;
- print foo;
+var stage = "unknown";
+var age = 50;
+if (age < 18) { stage = "child"; }
+if (age >= 18) { stage = "adult"; }
+print stage;
+
+var isAdult = age >= 18;
+if (isAdult) { print "eligible for voting: true"; }
+if (!isAdult) { print "eligible for voting: false"; }

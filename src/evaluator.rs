@@ -1,6 +1,6 @@
+use crate::enums::environment::Environment;
 use crate::enums::error::Error;
 use crate::enums::expression::{Expression, Operator, Primary, Unary};
-use crate::run::Environment;
 use std::process;
 
 use std::fmt::{self, Display};
