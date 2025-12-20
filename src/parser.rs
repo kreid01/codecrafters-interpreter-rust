@@ -35,7 +35,7 @@ pub fn parse_statements(filename: &str) -> (Vec<Statement>, Vec<Error>) {
     let mut errors: Vec<Error> = Vec::new();
 
     while !stream.is_at_end() {
-        match statement(&mut stream) {
+        match block(&mut stream) {
             Ok(statement) => statements.push(statement),
             Err(err) => {
                 errors.push(err);
@@ -47,76 +47,55 @@ pub fn parse_statements(filename: &str) -> (Vec<Statement>, Vec<Error>) {
     (statements, errors)
 }
 
+fn block(tokens: &mut TokenStream) -> Result<Statement, Error> {
+    if tokens.match_advance(&Token::LeftBrace) {
+        let mut statements: Vec<Statement> = Vec::new();
+        while !tokens.peek_is(&Token::RightBrace) {
+            if tokens.is_at_end() {
+                tokens.consume(&Token::RightBrace, "Expected } to close block")?;
+            }
+            let expr = block(tokens)?;
+            statements.push(expr);
+        }
+
+        tokens.consume(&Token::RightBrace, "Expected } to close block")?;
+        return Ok(Statement::Block(statements));
+    }
+
+    statement(tokens)
+}
+
 fn statement(tokens: &mut TokenStream) -> Result<Statement, Error> {
     if tokens.match_advance(&Token::Print) {
-        let expression = expression_statement(tokens)?;
-        return Ok(Statement::Print(expression));
+        let expr = expression(tokens)?;
+        tokens.consume(&Token::SemiColon, "Expected ';' after value.")?;
+        return Ok(Statement::Print(expr));
     }
 
     if tokens.match_advance(&Token::Var) {
-        return declaration(tokens);
+        return var_declaration(tokens);
     }
 
-    match expression_statement(tokens) {
-        Ok(expression) => Ok(Statement::Expression(expression)),
-        Err(err) => Err(err),
-    }
+    let expr = expression(tokens)?;
+    tokens.consume(&Token::SemiColon, "Expected ';' after expression.")?;
+    Ok(Statement::Expression(expr))
 }
 
-fn declaration(tokens: &mut TokenStream) -> Result<Statement, Error> {
-    let identifier = get_identifier(tokens)?;
-    let next = peek(tokens);
+fn var_declaration(tokens: &mut TokenStream) -> Result<Statement, Error> {
+    let name = tokens.consume_identifier("Expected variable name.")?;
 
-    match next {
-        Token::Equal => {
-            tokens.advance();
-            let expression = expression_statement(tokens)?;
-            Ok(Statement::Declaration(identifier, expression))
-        }
-        Token::SemiColon => {
-            tokens.advance();
-            Ok(Statement::Declaration(
-                identifier,
-                Expression::Primary(Primary::Nil),
-            ))
-        }
-        _ => Err(Error::RuntimeError(
-            1,
-            "Expected declaration or semi colon after identifier".to_string(),
-        )),
-    }
-}
-
-fn get_identifier(tokens: &mut TokenStream) -> Result<String, Error> {
-    let next = peek(tokens);
-
-    match next {
-        Token::Identifier(identifier) => {
-            tokens.advance();
-            Ok(identifier)
-        }
-        _ => Err(Error::RuntimeError(
-            1,
-            "Expected variable name after var".to_string(),
-        )),
-    }
-}
-
-fn peek(tokens: &mut TokenStream) -> Token {
-    match tokens.peek().cloned() {
-        Some(next) => next,
-        None => panic!("End of token stream"),
-    }
-}
-
-fn expression_statement(tokens: &mut TokenStream) -> Result<Expression, Error> {
-    let expression = expression(tokens)?;
-    if tokens.match_advance(&Token::SemiColon) {
-        Ok(expression)
+    let initializer = if tokens.match_advance(&Token::Equal) {
+        expression(tokens)?
     } else {
-        let error = format!("Expect ';' after expression {}.", expression);
-        Err(Error::ParseError(1, error))
-    }
+        Expression::Primary(Primary::Nil)
+    };
+
+    tokens.consume(
+        &Token::SemiColon,
+        "Expected ';' after variable declaration.",
+    )?;
+
+    Ok(Statement::Declaration(name, initializer))
 }
 
 fn expression(tokens: &mut TokenStream) -> Result<Expression, Error> {

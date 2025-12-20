@@ -13,6 +13,10 @@ pub fn run(filename: &str) {
         process::exit(65)
     }
 
+    evaluate_statements(statements);
+}
+
+fn evaluate_statements(statements: Vec<Statement>) {
     let mut errors: Vec<Error> = Vec::new();
     let mut symbols: HashMap<String, Value> = HashMap::new();
 
@@ -38,6 +42,7 @@ pub fn run(filename: &str) {
                     errors.push(err);
                 }
             },
+            Statement::Block(statements) => evaluate_statements(statements),
         }
     }
 }

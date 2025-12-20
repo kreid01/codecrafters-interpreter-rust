@@ -2,6 +2,8 @@ use once_cell::sync::Lazy;
 use std::collections::{HashMap, VecDeque};
 use std::fmt::{self, Display};
 
+use crate::enums::error::Error;
+
 impl Token {
     pub fn variant_matches(&self, other: &Token) -> bool {
         self == other
@@ -38,6 +40,25 @@ impl TokenStream {
             return true;
         }
         false
+    }
+
+    pub fn consume(&mut self, expected: &Token, message: &str) -> Result<Token, Error> {
+        if self.peek_is(expected) {
+            Ok(self.advance().unwrap())
+        } else {
+            Err(Error::ParseError(1, message.to_string()))
+        }
+    }
+
+    pub fn consume_identifier(&mut self, message: &str) -> Result<String, Error> {
+        match self.peek() {
+            Some(Token::Identifier(name)) => {
+                let name = name.clone();
+                self.advance();
+                Ok(name)
+            }
+            _ => Err(Error::ParseError(1, message.to_string())),
+        }
     }
 }
 
