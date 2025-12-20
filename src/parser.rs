@@ -85,11 +85,16 @@ fn declaration(tokens: &mut TokenStream) -> Result<Statement, Error> {
     if tokens.match_advance(&Token::Equal) {
         let expression = expression_statement(tokens)?;
         return Ok(Statement::Declaration(identifier, expression));
+    } else if tokens.match_advance(&Token::SemiColon) {
+        return Ok(Statement::Declaration(
+            identifier,
+            Expression::Primary(Primary::Nil),
+        ));
     }
 
     Err(Error::RuntimeError(
         1,
-        "Expected declaration after var".to_string(),
+        "Expected declaration or semi colon after identifier".to_string(),
     ))
 }
 
