@@ -61,11 +61,9 @@ pub fn evaluate_statement(
         }
 
         Statement::Block(statements) => {
-            let mut block_env =
-                Environment::with_enclosing(std::mem::replace(environment, Environment::new()));
-
+            let outer = std::mem::take(environment);
+            let mut block_env = Environment::with_enclosing(*Box::new(outer));
             evaluate_statements(statements, errors, &mut block_env);
-
             *environment = *block_env.enclosing.unwrap();
             None
         }

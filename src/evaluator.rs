@@ -111,14 +111,17 @@ fn call_function(
 ) -> Result<Value, Error> {
     let mut errors: Vec<Error> = Vec::new();
 
+    let mut function_env = Environment::with_enclosing(*Box::new(symbols.clone()));
+
     let mut arg_queue: VecDeque<Expression> = args.into();
     for param in params {
         let arg = arg_queue.pop_back().unwrap();
         let arg = evaluate_expression(&arg, symbols)?;
-        symbols.define(param.get_identifier(), Symbol::Variable(arg))
+        function_env.define(param.get_identifier(), Symbol::Variable(arg));
     }
 
-    evaluate_statement(statement, &mut errors, symbols);
+    evaluate_statement(statement, &mut errors, &mut function_env);
+
     Ok(Value::Nil)
 }
 
