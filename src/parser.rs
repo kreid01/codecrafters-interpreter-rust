@@ -98,11 +98,22 @@ fn statement(tokens: &mut TokenStream) -> Result<Statement, Error> {
 fn fn_statement(tokens: &mut TokenStream) -> Result<Statement, Error> {
     let identifier = tokens.consume_identifier("Function name expected")?;
     tokens.consume(&Token::LeftParen, "Error at fn expected '('")?;
+
+    let mut params: Vec<Token> = Vec::new();
+
+    while tokens.peek().unwrap_or(&Token::Unknown) != &Token::RightParen {
+        if !params.is_empty() {
+            tokens.consume(&Token::Comma, "Expected comma splitting function arguments")?;
+        }
+        let token = tokens.advance().unwrap();
+        params.push(token);
+    }
+
     tokens.consume(&Token::RightParen, "Error at fn expected ')'")?;
 
     let block = block(tokens)?;
 
-    Ok(Statement::Fn(identifier, None, Box::new(block)))
+    Ok(Statement::Fn(identifier, params, Box::new(block)))
 }
 
 fn for_statement(tokens: &mut TokenStream) -> Result<Statement, Error> {
@@ -359,10 +370,27 @@ fn primary(tokens: &mut TokenStream) -> Result<Expression, Error> {
 
 fn is_function(identifier: &String, tokens: &mut TokenStream) -> Result<Expression, Error> {
     let _ = tokens.consume(&Token::LeftParen, "")?;
+    let params = get_params(tokens)?;
     let _ = tokens.consume(&Token::RightParen, "")?;
+
     Ok(Expression::Primary(Primary::Function(
         identifier.to_string(),
+        params,
     )))
+}
+
+fn get_params(tokens: &mut TokenStream) -> Result<Vec<Expression>, Error> {
+    let mut params: Vec<Expression> = Vec::new();
+
+    while tokens.peek().unwrap_or(&Token::Unknown) != &Token::RightParen {
+        if !params.is_empty() {
+            tokens.consume(&Token::Comma, "Expected comma splitting function arguments")?;
+        }
+        let param = primary(tokens)?;
+        params.push(param);
+    }
+
+    Ok(params)
 }
 
 fn to_equality(token: Token) -> Operator {

@@ -17,7 +17,7 @@ pub enum Statement {
         Option<Expression>,
         Box<Statement>,
     ),
-    Fn(String, Option<Vec<Token>>, Box<Statement>),
+    Fn(String, Vec<Token>, Box<Statement>),
 }
 
 impl Display for Statement {
@@ -46,14 +46,11 @@ impl Display for Statement {
                 )
             }
             Statement::Fn(name, params, body) => {
-                let params = match params {
-                    Some(params) => params
-                        .iter()
-                        .map(|x| x.to_string())
-                        .collect::<Vec<String>>()
-                        .join(","),
-                    None => String::new(),
-                };
+                let params = params
+                    .iter()
+                    .map(|x| x.to_string())
+                    .collect::<Vec<String>>()
+                    .join(",");
 
                 write!(fmt, "{}({}) {}", name, params, body)
             }

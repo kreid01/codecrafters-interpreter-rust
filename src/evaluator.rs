@@ -1,7 +1,10 @@
 use crate::enums::environment::{Environment, Symbol};
 use crate::enums::error::Error;
 use crate::enums::expression::{Expression, Operator, Primary, Unary};
+use crate::enums::statement::Statement;
+use crate::enums::token::Token;
 use crate::run::evaluate_statement;
+use std::collections::VecDeque;
 use std::process;
 
 use std::fmt::{self, Display};
@@ -29,7 +32,10 @@ impl Display for Value {
 pub fn evaluate(expression: &Expression, symbols: &mut Environment) -> Result<Value, Error> {
     match evaluate_expression(expression, symbols) {
         Ok(result) => Ok(result),
-        Err(error) => process::exit(70),
+        Err(err) => {
+            // println!("{}", err);
+            process::exit(70)
+        }
     }
 }
 
@@ -75,20 +81,19 @@ fn primary(primary: &Primary, symbols: &mut Environment) -> Result<Value, Error>
         Primary::Nil => Ok(Value::Nil),
         Primary::Grouping(expression) => evaluate_expression(expression, symbols),
         Primary::Identifier(identifier) => variable(identifier, symbols),
-        Primary::Function(name) => function(name, symbols),
+        Primary::Function(name, arguments) => function(name, arguments.to_vec(), symbols),
     }
 }
 
-fn function(function: &str, symbols: &mut Environment) -> Result<Value, Error> {
-    let mut errors: Vec<Error> = Vec::new();
-
+fn function(
+    function: &str,
+    args: Vec<Expression>,
+    symbols: &mut Environment,
+) -> Result<Value, Error> {
     if let Some(function) = symbols.get(function) {
         return match function {
             Symbol::Variable(_) => Err(Error::RuntimeError(1, "Variable not callable".to_string())),
-            Symbol::Function(_params, statement) => {
-                evaluate_statement(statement, &mut errors, symbols);
-                Ok(Value::Nil)
-            }
+            Symbol::Function(params, statement) => call_function(params, args, statement, symbols),
         };
     }
 
@@ -96,6 +101,25 @@ fn function(function: &str, symbols: &mut Environment) -> Result<Value, Error> {
         "clock" => clock(),
         _ => Err(Error::RuntimeError(1, "Unknown method".to_string())),
     }
+}
+
+fn call_function(
+    params: Vec<Token>,
+    args: Vec<Expression>,
+    statement: Statement,
+    symbols: &mut Environment,
+) -> Result<Value, Error> {
+    let mut errors: Vec<Error> = Vec::new();
+
+    let mut arg_queue: VecDeque<Expression> = args.into();
+    for param in params {
+        let arg = arg_queue.pop_back().unwrap();
+        let arg = evaluate_expression(&arg, symbols)?;
+        symbols.define(param.get_identifier(), Symbol::Variable(arg))
+    }
+
+    evaluate_statement(statement, &mut errors, symbols);
+    Ok(Value::Nil)
 }
 
 fn clock() -> Result<Value, Error> {

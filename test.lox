@@ -1,2 +1,2 @@
-var foo = 0;
-while (foo < 3) print foo = foo + 1;
+fun f3(a, b, c) { print a + b + c; }
+f3(22, 22, 22);

@@ -110,6 +110,15 @@ pub enum Token {
     Unknown,
 }
 
+impl Token {
+    pub fn get_identifier(&self) -> String {
+        match self {
+            Token::Identifier(id) => id.to_string(),
+            _ => "Token not an idnenfitier".to_string(),
+        }
+    }
+}
+
 pub static KEYWORD_MAP: Lazy<HashMap<&'static str, Token>> = Lazy::new(|| {
     let mut m = HashMap::new();
     m.insert("and", Token::And);

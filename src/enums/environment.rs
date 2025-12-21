@@ -13,7 +13,7 @@ pub struct Environment {
 #[derive(Debug, Clone)]
 pub enum Symbol {
     Variable(Value),
-    Function(Option<Vec<Token>>, Statement),
+    Function(Vec<Token>, Statement),
 }
 
 impl Environment {

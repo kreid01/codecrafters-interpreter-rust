@@ -1,6 +1,6 @@
 use std::fmt::{self, Display};
 
-use crate::enums::token::format_number;
+use crate::enums::token::{Token, format_number};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Expression {
@@ -38,7 +38,7 @@ pub enum Primary {
     Nil,
     Grouping(Box<Expression>),
     Identifier(String),
-    Function(String),
+    Function(String, Vec<Expression>),
 }
 
 impl Display for Primary {
@@ -50,7 +50,14 @@ impl Display for Primary {
             Primary::False => "false".to_string(),
             Primary::Nil => "nil".to_string(),
             Primary::Identifier(name) => name.to_string(),
-            Primary::Function(name) => format!("{}()", name),
+            Primary::Function(name, tokens) => {
+                let params = tokens
+                    .iter()
+                    .map(|x| x.to_string())
+                    .collect::<Vec<String>>()
+                    .join(", ");
+                format!("{}({})", name, params)
+            }
             Primary::Grouping(expr) => format!("(group {})", expr),
         };
 
