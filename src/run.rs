@@ -1,6 +1,6 @@
 use std::process;
 
-use crate::enums::environment::Environment;
+use crate::enums::environment::{Environment, Symbol};
 use crate::enums::error::Error;
 use crate::enums::statement::Statement;
 use crate::evaluator::{Value, evaluate, truthy};
@@ -29,27 +29,36 @@ fn evaluate_statements(
     }
 }
 
-fn evaluate_statement(
+pub fn evaluate_statement(
     statement: Statement,
     errors: &mut Vec<Error>,
     environment: &mut Environment,
-) {
+) -> Option<Value> {
     match statement {
-        Statement::Print(expression) => match evaluate(&expression, environment) {
-            Ok(val) => println!("{}", val),
-            Err(err) => errors.push(err),
-        },
-
-        Statement::Expression(expression) => {
-            if let Err(err) = evaluate(&expression, environment) {
-                errors.push(err);
-            }
+        Statement::Print(expression) => {
+            match evaluate(&expression, environment) {
+                Ok(val) => println!("{}", val),
+                Err(err) => errors.push(err),
+            };
+            None
         }
 
-        Statement::Declaration(name, expression) => match evaluate(&expression, environment) {
-            Ok(val) => environment.define(name, val),
-            Err(err) => errors.push(err),
+        Statement::Expression(expression) => match evaluate(&expression, environment) {
+            Ok(val) => Some(val),
+            Err(err) => {
+                errors.push(err);
+                None
+            }
         },
+
+        Statement::Declaration(name, expression) => {
+            match evaluate(&expression, environment) {
+                Ok(val) => environment.define(name, Symbol::Variable(val)),
+                Err(err) => errors.push(err),
+            };
+
+            None
+        }
 
         Statement::Block(statements) => {
             let mut block_env =
@@ -58,12 +67,16 @@ fn evaluate_statement(
             evaluate_statements(statements, errors, &mut block_env);
 
             *environment = *block_env.enclosing.unwrap();
+            None
         }
 
         Statement::IfElse(condition, if_stmt, else_stmt) => {
             let condition = match evaluate(&condition, environment) {
                 Ok(val) => val,
-                Err(err) => return errors.push(err),
+                Err(err) => {
+                    errors.push(err);
+                    Value::Boolean(false)
+                }
             };
 
             if truthy(condition) {
@@ -71,11 +84,15 @@ fn evaluate_statement(
             } else if let Some(else_stmt) = else_stmt {
                 evaluate_statement(*else_stmt, errors, environment);
             }
+
+            None
         }
         Statement::While(condition, statement) => {
             while truthy(evaluate(&condition, environment).unwrap_or(Value::Boolean(false))) {
                 evaluate_statement(*statement.clone(), errors, environment);
             }
+
+            None
         }
         Statement::For(statement, check, increment, block) => {
             if let Some(statement) = statement {
@@ -90,9 +107,13 @@ fn evaluate_statement(
                     }
                 }
             }
+
+            None
         }
         Statement::Fn(name, params, block) => {
-            println!("{}, {:?}", name, block)
+            let function = Symbol::Function(params, *block);
+            environment.define(name, function);
+            None
         }
     }
 }

@@ -98,7 +98,7 @@ fn statement(tokens: &mut TokenStream) -> Result<Statement, Error> {
 fn fn_statement(tokens: &mut TokenStream) -> Result<Statement, Error> {
     let identifier = tokens.consume_identifier("Function name expected")?;
     tokens.consume(&Token::LeftParen, "Error at fn expected '('")?;
-    tokens.consume(&Token::LeftParen, "Error at fn expected '('")?;
+    tokens.consume(&Token::RightParen, "Error at fn expected ')'")?;
 
     let block = block(tokens)?;
 

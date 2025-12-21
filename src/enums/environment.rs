@@ -1,11 +1,19 @@
 use crate::enums::error::Error;
+use crate::enums::statement::Statement;
+use crate::enums::token::Token;
 use crate::evaluator::Value;
 use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct Environment {
-    pub symbols: HashMap<String, Value>,
+    pub symbols: HashMap<String, Symbol>,
     pub enclosing: Option<Box<Environment>>,
+}
+
+#[derive(Debug, Clone)]
+pub enum Symbol {
+    Variable(Value),
+    Function(Option<Vec<Token>>, Statement),
 }
 
 impl Environment {
@@ -23,11 +31,11 @@ impl Environment {
         }
     }
 
-    pub fn define(&mut self, name: String, value: Value) {
+    pub fn define(&mut self, name: String, value: Symbol) {
         self.symbols.insert(name, value);
     }
 
-    pub fn get(&self, name: &str) -> Option<Value> {
+    pub fn get(&self, name: &str) -> Option<Symbol> {
         if let Some(v) = self.symbols.get(name) {
             return Some(v.clone());
         }
@@ -39,7 +47,7 @@ impl Environment {
         None
     }
 
-    pub fn assign(&mut self, name: &str, value: Value) -> Result<(), Error> {
+    pub fn assign(&mut self, name: &str, value: Symbol) -> Result<(), Error> {
         if self.symbols.contains_key(name) {
             self.symbols.insert(name.to_string(), value);
             return Ok(());

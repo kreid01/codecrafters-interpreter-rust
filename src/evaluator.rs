@@ -1,11 +1,11 @@
-use crate::enums::environment::Environment;
+use crate::enums::environment::{Environment, Symbol};
 use crate::enums::error::Error;
 use crate::enums::expression::{Expression, Operator, Primary, Unary};
-use crate::utils::print;
+use crate::run::evaluate_statement;
 use std::process;
 
 use std::fmt::{self, Display};
-use std::time::{Instant, SystemTime};
+use std::time::SystemTime;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum Value {
@@ -29,7 +29,7 @@ impl Display for Value {
 pub fn evaluate(expression: &Expression, symbols: &mut Environment) -> Result<Value, Error> {
     match evaluate_expression(expression, symbols) {
         Ok(result) => Ok(result),
-        Err(_) => process::exit(70),
+        Err(error) => process::exit(70),
     }
 }
 
@@ -61,7 +61,7 @@ fn assignment(
         }
     };
 
-    environment.assign(name, value.clone())?;
+    environment.assign(name, Symbol::Variable(value.clone()))?;
 
     Ok(value)
 }
@@ -79,26 +79,46 @@ fn primary(primary: &Primary, symbols: &mut Environment) -> Result<Value, Error>
     }
 }
 
-fn function(function: &str, symbols: &Environment) -> Result<Value, Error> {
-    match function {
-        "clock" => {
-            let now = SystemTime::now();
-            if let Ok(now) = now.duration_since(SystemTime::UNIX_EPOCH) {
-                Ok(Value::Number(now.as_secs_f64()))
-            } else {
-                Err(Error::RuntimeError(
-                    1,
-                    "Failed to get current time".to_string(),
-                ))
+fn function(function: &str, symbols: &mut Environment) -> Result<Value, Error> {
+    let mut errors: Vec<Error> = Vec::new();
+
+    if let Some(function) = symbols.get(function) {
+        return match function {
+            Symbol::Variable(_) => Err(Error::RuntimeError(1, "Variable not callable".to_string())),
+            Symbol::Function(_params, statement) => {
+                evaluate_statement(statement, &mut errors, symbols);
+                Ok(Value::Nil)
             }
-        }
+        };
+    }
+
+    match function {
+        "clock" => clock(),
         _ => Err(Error::RuntimeError(1, "Unknown method".to_string())),
+    }
+}
+
+fn clock() -> Result<Value, Error> {
+    let now = SystemTime::now();
+    if let Ok(now) = now.duration_since(SystemTime::UNIX_EPOCH) {
+        Ok(Value::Number(now.as_secs_f64()))
+    } else {
+        Err(Error::RuntimeError(
+            1,
+            "Failed to get current time".to_string(),
+        ))
     }
 }
 
 fn variable(string: &str, symbols: &Environment) -> Result<Value, Error> {
     match symbols.get(string) {
-        Some(value) => Ok(value.clone()),
+        Some(value) => match value {
+            Symbol::Variable(val) => Ok(val),
+            Symbol::Function(_, _) => {
+                let val = format!("<fn {}>", string);
+                Ok(Value::String(val))
+            }
+        },
         None => Err(Error::RuntimeError(1, "Unknown identifier".to_string())),
     }
 }
