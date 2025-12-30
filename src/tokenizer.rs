@@ -124,7 +124,7 @@ fn get_numeric_token(tokens: &mut CharStream, token: char, line: usize) -> Token
         match next {
             '.' => {
                 if decimal {
-                    return Token::ErrorString(number, 1);
+                    return Token::ErrorString(number, line);
                 }
 
                 decimal = true;

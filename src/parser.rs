@@ -4,6 +4,7 @@ use crate::enums::statement::Statement;
 use crate::enums::token::{Token, TokenStream};
 use crate::tokenizer::tokenize;
 use std::collections::VecDeque;
+use std::string::ParseError;
 
 pub fn parse(filename: &str) -> (Vec<Expression>, Vec<Error>) {
     let (tokens, _) = tokenize(filename);
@@ -42,6 +43,10 @@ pub fn parse_statements(filename: &str) -> (Vec<Statement>, Vec<Error>) {
                 break;
             }
         }
+    }
+
+    for e in errors.iter().clone() {
+        eprint!("{}", e)
     }
 
     (statements, errors)
@@ -110,6 +115,13 @@ fn fn_statement(tokens: &mut TokenStream) -> Result<Statement, Error> {
     }
 
     tokens.consume(&Token::RightParen, "Error at fn expected ')'")?;
+
+    if !tokens.peek_is(&Token::LeftBrace) {
+        return Err(Error::ParseError(
+            1,
+            "Expected '{' after function declaration".to_string(),
+        ));
+    }
 
     let block = block(tokens)?;
 
