@@ -18,6 +18,7 @@ pub enum Statement {
         Box<Statement>,
     ),
     Fn(String, Vec<Token>, Box<Statement>),
+    Return(Expression),
 }
 
 impl Display for Statement {
@@ -54,6 +55,7 @@ impl Display for Statement {
 
                 write!(fmt, "{}({}) {}", name, params, body)
             }
+            Statement::Return(expr) => write!(fmt, "return {}", expr),
         }
     }
 }

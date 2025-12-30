@@ -1,4 +1,4 @@
-use crate::enums::token::{KEYWORD_MAP, Token};
+use crate::enums::token::{KEYWORD_MAP, Lexeme, Token};
 use crate::utils::get_file_contents;
 
 struct CharStream<'a> {
@@ -15,8 +15,8 @@ impl CharStream<'_> {
     }
 }
 
-pub fn tokenize(filename: &str) -> (Vec<Token>, Vec<Token>) {
-    let mut output: Vec<Token> = Vec::new();
+pub fn tokenize(filename: &str) -> (Vec<Lexeme>, Vec<Token>) {
+    let mut lexemes: Vec<Lexeme> = Vec::new();
     let mut errors: Vec<Token> = Vec::new();
 
     let file_contents = get_file_contents(filename);
@@ -71,13 +71,14 @@ pub fn tokenize(filename: &str) -> (Vec<Token>, Vec<Token>) {
                     errors.push(token);
                 }
                 _ => {
-                    output.push(token);
+                    let lexeme = Lexeme { token, line_number };
+                    lexemes.push(lexeme);
                 }
             }
         }
     }
 
-    (output, errors)
+    (lexemes, errors)
 }
 
 fn remove_comment(tokens: &mut CharStream) {

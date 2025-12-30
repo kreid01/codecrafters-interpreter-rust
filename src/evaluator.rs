@@ -3,7 +3,7 @@ use crate::enums::error::Error;
 use crate::enums::expression::{Expression, Operator, Primary, Unary};
 use crate::enums::statement::Statement;
 use crate::enums::token::Token;
-use crate::run::evaluate_statement;
+use crate::run::{ControlFlow, evaluate_statement};
 use std::collections::VecDeque;
 use std::process;
 
@@ -33,7 +33,7 @@ pub fn evaluate(expression: &Expression, symbols: &mut Environment) -> Result<Va
     match evaluate_expression(expression, symbols) {
         Ok(result) => Ok(result),
         Err(err) => {
-            // println!("{}", err);
+            println!("{}", err);
             process::exit(70)
         }
     }
@@ -109,8 +109,6 @@ fn call_function(
     statement: Statement,
     symbols: &mut Environment,
 ) -> Result<Value, Error> {
-    let mut errors: Vec<Error> = Vec::new();
-
     let mut function_env = Environment::with_enclosing(*Box::new(symbols.clone()));
 
     let mut arg_queue: VecDeque<Expression> = args.into();
@@ -120,9 +118,11 @@ fn call_function(
         function_env.define(param.get_identifier(), Symbol::Variable(arg));
     }
 
-    evaluate_statement(statement, &mut errors, &mut function_env);
-
-    Ok(Value::Nil)
+    match evaluate_statement(statement, &mut function_env) {
+        Err(ControlFlow::Return(val)) => Ok(val),
+        Ok(_) => Ok(Value::Nil),
+        Err(ControlFlow::Runtime(err)) => Err(err),
+    }
 }
 
 fn clock() -> Result<Value, Error> {

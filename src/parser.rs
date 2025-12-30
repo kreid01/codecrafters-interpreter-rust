@@ -1,16 +1,15 @@
 use crate::enums::error::Error;
 use crate::enums::expression::{Expression, Operator, Primary, Unary};
 use crate::enums::statement::Statement;
-use crate::enums::token::{Token, TokenStream};
+use crate::enums::token::{Lexeme, Token, TokenStream};
 use crate::tokenizer::tokenize;
 use std::collections::VecDeque;
-use std::string::ParseError;
 
 pub fn parse(filename: &str) -> (Vec<Expression>, Vec<Error>) {
     let (tokens, _) = tokenize(filename);
 
     let mut expressions: Vec<Expression> = Vec::new();
-    let tokens: VecDeque<Token> = tokens.into();
+    let tokens: VecDeque<Lexeme> = tokens.into();
     let mut stream = TokenStream { tokens };
     let mut errors: Vec<Error> = Vec::new();
 
@@ -31,7 +30,7 @@ pub fn parse_statements(filename: &str) -> (Vec<Statement>, Vec<Error>) {
     let (tokens, _) = tokenize(filename);
 
     let mut statements: Vec<Statement> = Vec::new();
-    let tokens: VecDeque<Token> = tokens.into();
+    let tokens: VecDeque<Lexeme> = tokens.into();
     let mut stream = TokenStream { tokens };
     let mut errors: Vec<Error> = Vec::new();
 
@@ -83,6 +82,10 @@ fn statement(tokens: &mut TokenStream) -> Result<Statement, Error> {
         return var_declaration(tokens);
     }
 
+    if tokens.match_advance(&Token::Return) {
+        return return_statement(tokens);
+    }
+
     if tokens.match_advance(&Token::While) {
         return while_statement(tokens);
     }
@@ -98,6 +101,17 @@ fn statement(tokens: &mut TokenStream) -> Result<Statement, Error> {
     let expr = expression(tokens)?;
     tokens.consume(&Token::SemiColon, "Expected ';' after expression.")?;
     Ok(Statement::Expression(expr))
+}
+
+fn return_statement(tokens: &mut TokenStream) -> Result<Statement, Error> {
+    let mut value = Expression::Primary(Primary::Nil);
+
+    if !tokens.peek_is(&Token::SemiColon) {
+        value = expression(tokens)?
+    }
+
+    tokens.consume(&Token::SemiColon, "Expected ';' after return.")?;
+    Ok(Statement::Return(value))
 }
 
 fn fn_statement(tokens: &mut TokenStream) -> Result<Statement, Error> {
@@ -118,7 +132,7 @@ fn fn_statement(tokens: &mut TokenStream) -> Result<Statement, Error> {
 
     if !tokens.peek_is(&Token::LeftBrace) {
         return Err(Error::ParseError(
-            1,
+            tokens.current_line(),
             "Expected '{' after function declaration".to_string(),
         ));
     }
@@ -234,7 +248,12 @@ fn assignment(tokens: &mut TokenStream) -> Result<Expression, Error> {
                     Box::new(right),
                 ));
             }
-            _ => return Err(Error::ParseError(1, "Invalid assignment".to_string())),
+            _ => {
+                return Err(Error::ParseError(
+                    tokens.current_line(),
+                    "Invalid assignment".to_string(),
+                ));
+            }
         }
     }
 
@@ -355,9 +374,10 @@ fn primary(tokens: &mut TokenStream) -> Result<Expression, Error> {
         Token::Number(_, ref number) => Ok(Expression::Primary(Primary::Number(*number))),
         Token::String(ref literal) => Ok(Expression::Primary(Primary::String(literal.to_string()))),
         Token::Identifier(identifier) => {
-            if let Ok(expr) = is_function(&identifier, tokens) {
-                return Ok(expr);
+            if tokens.peek_is(&Token::LeftParen) {
+                return parse_function_call(identifier, tokens);
             }
+
             Ok(Expression::Primary(Primary::Identifier(identifier)))
         }
 
@@ -368,27 +388,28 @@ fn primary(tokens: &mut TokenStream) -> Result<Expression, Error> {
                     expr_inside,
                 ))))
             } else {
-                let error = Error::ParseError(1, "Expected ')' after expression.".to_string());
+                let error = Error::ParseError(
+                    tokens.current_line(),
+                    "Expected ')' after expression.".to_string(),
+                );
                 Err(error)
             }
         }
 
         _ => {
-            let error = Error::ParseError(1, format!("Unknown token {}", token));
+            let error =
+                Error::ParseError(tokens.current_line(), format!("Unknown token {}", token));
             Err(error)
         }
     }
 }
 
-fn is_function(identifier: &String, tokens: &mut TokenStream) -> Result<Expression, Error> {
-    let _ = tokens.consume(&Token::LeftParen, "")?;
+fn parse_function_call(identifier: String, tokens: &mut TokenStream) -> Result<Expression, Error> {
+    tokens.consume(&Token::LeftParen, "Expected '(' after function name.")?;
     let params = get_params(tokens)?;
-    let _ = tokens.consume(&Token::RightParen, "")?;
+    tokens.consume(&Token::RightParen, "Expected ')' after arguments.")?;
 
-    Ok(Expression::Primary(Primary::Function(
-        identifier.to_string(),
-        params,
-    )))
+    Ok(Expression::Primary(Primary::Function(identifier, params)))
 }
 
 fn get_params(tokens: &mut TokenStream) -> Result<Vec<Expression>, Error> {
@@ -398,7 +419,7 @@ fn get_params(tokens: &mut TokenStream) -> Result<Vec<Expression>, Error> {
         if !params.is_empty() {
             tokens.consume(&Token::Comma, "Expected comma splitting function arguments")?;
         }
-        let param = primary(tokens)?;
+        let param = expression(tokens)?;
         params.push(param);
     }
 

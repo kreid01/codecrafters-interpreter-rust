@@ -11,16 +11,16 @@ impl Token {
 }
 
 pub struct TokenStream {
-    pub tokens: VecDeque<Token>,
+    pub tokens: VecDeque<Lexeme>,
 }
 
 impl TokenStream {
     pub fn peek(&self) -> Option<&Token> {
-        self.tokens.front()
+        self.tokens.front().map(|t| &t.token)
     }
 
     pub fn advance(&mut self) -> Option<Token> {
-        self.tokens.pop_front()
+        self.tokens.pop_front().map(|t| t.token)
     }
 
     pub fn is_at_end(&self) -> bool {
@@ -46,8 +46,16 @@ impl TokenStream {
         if self.peek_is(expected) {
             Ok(self.advance().unwrap())
         } else {
-            Err(Error::ParseError(1, message.to_string()))
+            Err(Error::ParseError(self.current_line(), message.to_string()))
         }
+    }
+
+    pub fn current_line(&mut self) -> usize {
+        if let Some(token) = self.tokens.pop_front() {
+            return token.line_number;
+        }
+
+        0
     }
 
     pub fn consume_identifier(&mut self, message: &str) -> Result<String, Error> {
@@ -57,8 +65,20 @@ impl TokenStream {
                 self.advance();
                 Ok(name)
             }
-            _ => Err(Error::ParseError(1, message.to_string())),
+            _ => Err(Error::ParseError(self.current_line(), message.to_string())),
         }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Lexeme {
+    pub token: Token,
+    pub line_number: usize,
+}
+
+impl Display for Lexeme {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> fmt::Result {
+        write!(fmt, "[line {}]: {}", self.line_number, self.token)
     }
 }
 

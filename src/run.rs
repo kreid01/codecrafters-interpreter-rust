@@ -6,112 +6,130 @@ use crate::enums::statement::Statement;
 use crate::evaluator::{Value, evaluate, truthy};
 use crate::parser::parse_statements;
 
+#[derive(Debug)]
+pub enum ControlFlow {
+    Return(Value),
+    Runtime(Error),
+}
+
 pub fn run(filename: &str) {
     let (statements, errors) = parse_statements(filename);
 
     if !errors.is_empty() {
-        process::exit(65)
+        process::exit(65);
     }
 
-    let mut runtime_errors = Vec::new();
     let mut environment = Environment::new();
 
-    evaluate_statements(statements, &mut runtime_errors, &mut environment);
+    match evaluate_statements(statements, &mut environment) {
+        Ok(()) => {}
+        Err(ControlFlow::Runtime(err)) => {
+            eprintln!("{}", err);
+            process::exit(70);
+        }
+        Err(ControlFlow::Return(val)) => {
+            println!("{}", val);
+            // Top-level return is illegal in Lox
+            eprintln!("Can't return from top-level code.");
+            process::exit(70);
+        }
+    }
 }
 
 fn evaluate_statements(
     statements: Vec<Statement>,
-    errors: &mut Vec<Error>,
     environment: &mut Environment,
-) {
+) -> Result<(), ControlFlow> {
     for statement in statements {
-        evaluate_statement(statement, errors, environment);
+        evaluate_statement(statement, environment)?;
     }
+    Ok(())
 }
 
 pub fn evaluate_statement(
     statement: Statement,
-    errors: &mut Vec<Error>,
     environment: &mut Environment,
-) -> Option<Value> {
+) -> Result<(), ControlFlow> {
     match statement {
-        Statement::Print(expression) => {
-            match evaluate(&expression, environment) {
-                Ok(val) => println!("{}", val),
-                Err(err) => errors.push(err),
-            };
-            None
+        Statement::Print(expr) => {
+            let value = evaluate(&expr, environment).map_err(ControlFlow::Runtime)?;
+            println!("{}", value);
+            Ok(())
         }
 
-        Statement::Expression(expression) => match evaluate(&expression, environment) {
-            Ok(val) => Some(val),
-            Err(err) => {
-                errors.push(err);
-                None
-            }
-        },
+        Statement::Expression(expr) => {
+            evaluate(&expr, environment).map_err(ControlFlow::Runtime)?;
+            Ok(())
+        }
 
-        Statement::Declaration(name, expression) => {
-            match evaluate(&expression, environment) {
-                Ok(val) => environment.define(name, Symbol::Variable(val)),
-                Err(err) => errors.push(err),
-            };
-
-            None
+        Statement::Declaration(name, expr) => {
+            let value = evaluate(&expr, environment).map_err(ControlFlow::Runtime)?;
+            environment.define(name, Symbol::Variable(value));
+            Ok(())
         }
 
         Statement::Block(statements) => {
-            let outer = std::mem::take(environment);
-            let mut block_env = Environment::with_enclosing(*Box::new(outer));
-            evaluate_statements(statements, errors, &mut block_env);
-            *environment = *block_env.enclosing.unwrap();
-            None
+            let outer = environment.clone();
+            let mut block_env = Environment::with_enclosing(outer);
+
+            match evaluate_statements(statements, &mut block_env) {
+                Ok(()) => Ok(()),
+                Err(flow) => Err(flow),
+            }
         }
 
-        Statement::IfElse(condition, if_stmt, else_stmt) => {
-            let condition = match evaluate(&condition, environment) {
-                Ok(val) => val,
-                Err(err) => {
-                    errors.push(err);
-                    Value::Boolean(false)
-                }
-            };
+        Statement::IfElse(condition, then_stmt, else_stmt) => {
+            let cond = evaluate(&condition, environment).map_err(ControlFlow::Runtime)?;
 
-            if truthy(condition) {
-                evaluate_statement(*if_stmt, errors, environment);
+            if truthy(cond) {
+                evaluate_statement(*then_stmt, environment)?;
             } else if let Some(else_stmt) = else_stmt {
-                evaluate_statement(*else_stmt, errors, environment);
+                evaluate_statement(*else_stmt, environment)?;
             }
-
-            None
+            Ok(())
         }
-        Statement::While(condition, statement) => {
-            while truthy(evaluate(&condition, environment).unwrap_or(Value::Boolean(false))) {
-                evaluate_statement(*statement.clone(), errors, environment);
-            }
 
-            None
+        Statement::While(condition, body) => {
+            while truthy(evaluate(&condition, environment).map_err(ControlFlow::Runtime)?) {
+                evaluate_statement(*body.clone(), environment)?;
+            }
+            Ok(())
         }
-        Statement::For(statement, check, increment, block) => {
-            if let Some(statement) = statement {
-                evaluate_statement(*statement.clone(), errors, environment);
+
+        Statement::For(initializer, condition, increment, body) => {
+            if let Some(init) = initializer {
+                evaluate_statement(*init, environment)?;
             }
 
-            if let Some(check) = check {
-                while truthy(evaluate(&check, environment).unwrap_or(Value::Boolean(false))) {
-                    evaluate_statement(*block.clone(), errors, environment);
-                    if let Some(increment) = increment.clone() {
-                        let _ = evaluate(&increment, environment);
-                    }
+            loop {
+                let cond = match condition.as_ref() {
+                    Some(c) => truthy(evaluate(c, environment).map_err(ControlFlow::Runtime)?),
+                    None => true,
+                };
+
+                if !cond {
+                    break;
+                }
+
+                evaluate_statement(*body.clone(), environment)?;
+
+                if let Some(inc) = increment.as_ref() {
+                    evaluate(inc, environment).map_err(ControlFlow::Runtime)?;
                 }
             }
 
-            None
+            Ok(())
         }
-        Statement::Fn(name, params, block) => {
-            let function = Symbol::Function(params, *block);
+
+        Statement::Fn(name, params, body) => {
+            let function = Symbol::Function(params, *body);
             environment.define(name, function);
-            None
+            Ok(())
+        }
+
+        Statement::Return(expr) => {
+            let value = evaluate(&expr, environment).map_err(ControlFlow::Runtime)?;
+            Err(ControlFlow::Return(value))
         }
     }
 }
