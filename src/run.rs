@@ -1,6 +1,6 @@
 use std::process;
 
-use crate::enums::environment::{Environment, Symbol};
+use crate::enums::environment::{Env, Environment, Symbol};
 use crate::enums::error::Error;
 use crate::enums::statement::Statement;
 use crate::evaluator::{Value, evaluate, truthy};
@@ -25,11 +25,9 @@ pub fn run(filename: &str) {
         Ok(()) => {}
         Err(ControlFlow::Runtime(err)) => {
             eprintln!("{}", err);
-            process::exit(70);
+            process::exit(65);
         }
-        Err(ControlFlow::Return(val)) => {
-            println!("{}", val);
-            // Top-level return is illegal in Lox
+        Err(ControlFlow::Return(_)) => {
             eprintln!("Can't return from top-level code.");
             process::exit(70);
         }
@@ -38,7 +36,7 @@ pub fn run(filename: &str) {
 
 fn evaluate_statements(
     statements: Vec<Statement>,
-    environment: &mut Environment,
+    environment: &mut Env,
 ) -> Result<(), ControlFlow> {
     for statement in statements {
         evaluate_statement(statement, environment)?;
@@ -46,10 +44,7 @@ fn evaluate_statements(
     Ok(())
 }
 
-pub fn evaluate_statement(
-    statement: Statement,
-    environment: &mut Environment,
-) -> Result<(), ControlFlow> {
+pub fn evaluate_statement(statement: Statement, environment: &mut Env) -> Result<(), ControlFlow> {
     match statement {
         Statement::Print(expr) => {
             let value = evaluate(&expr, environment).map_err(ControlFlow::Runtime)?;
@@ -64,23 +59,19 @@ pub fn evaluate_statement(
 
         Statement::Declaration(name, expr) => {
             let value = evaluate(&expr, environment).map_err(ControlFlow::Runtime)?;
-            environment.define(name, Symbol::Variable(value));
+            environment
+                .borrow_mut()
+                .define(name, Symbol::Variable(value));
             Ok(())
         }
 
         Statement::Block(statements) => {
-            let outer = environment.clone();
-            let mut block_env = Environment::with_enclosing(outer);
-
-            match evaluate_statements(statements, &mut block_env) {
-                Ok(()) => Ok(()),
-                Err(flow) => Err(flow),
-            }
+            let mut block_env = Environment::with_enclosing(environment.clone());
+            evaluate_statements(statements, &mut block_env)
         }
 
         Statement::IfElse(condition, then_stmt, else_stmt) => {
             let cond = evaluate(&condition, environment).map_err(ControlFlow::Runtime)?;
-
             if truthy(cond) {
                 evaluate_statement(*then_stmt, environment)?;
             } else if let Some(else_stmt) = else_stmt {
@@ -91,7 +82,7 @@ pub fn evaluate_statement(
 
         Statement::While(condition, body) => {
             while truthy(evaluate(&condition, environment).map_err(ControlFlow::Runtime)?) {
-                evaluate_statement(*body.clone(), environment)?;
+                evaluate_statement(*body.clone(), environment)?
             }
             Ok(())
         }
@@ -111,7 +102,8 @@ pub fn evaluate_statement(
                     break;
                 }
 
-                evaluate_statement(*body.clone(), environment)?;
+                let mut body_env = Environment::with_enclosing(environment.clone());
+                evaluate_statement(*body.clone(), &mut body_env)?;
 
                 if let Some(inc) = increment.as_ref() {
                     evaluate(inc, environment).map_err(ControlFlow::Runtime)?;
@@ -123,7 +115,7 @@ pub fn evaluate_statement(
 
         Statement::Fn(name, params, body) => {
             let function = Symbol::Function(params, *body);
-            environment.define(name, function);
+            environment.borrow_mut().define(name, function);
             Ok(())
         }
 

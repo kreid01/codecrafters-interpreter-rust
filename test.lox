@@ -1,20 +1,4 @@
- fun calculateGrade(score, bonus) {
-   var finalScore = score + bonus;
-
-   if (finalScore >= 90) {
-     print "A";
-   } else if (finalScore >= 80) {
-     print "B";
-   } else if (finalScore >= 70) {
-     print "C";
-   } else if (finalScore >= 60) {
-     print "D";
-   } else {
-     print "F";
-   }
- }
-
- var score = 80;
- var bonus = 4;
- print "Grade for given score is: ";
- calculateGrade(score, bonus);
+for (var foo = 0; foo < 2;) {
+   print foo;
+   foo = foo + 1;
+}

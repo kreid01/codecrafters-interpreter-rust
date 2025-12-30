@@ -44,10 +44,6 @@ pub fn parse_statements(filename: &str) -> (Vec<Statement>, Vec<Error>) {
         }
     }
 
-    for e in errors.iter().clone() {
-        eprint!("{}", e)
-    }
-
     (statements, errors)
 }
 

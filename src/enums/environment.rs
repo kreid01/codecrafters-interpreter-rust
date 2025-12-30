@@ -2,12 +2,17 @@ use crate::enums::error::Error;
 use crate::enums::statement::Statement;
 use crate::enums::token::Token;
 use crate::evaluator::Value;
-use std::collections::HashMap;
 
-#[derive(Debug, Default, Clone)]
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::rc::Rc;
+
+pub type Env = Rc<RefCell<Environment>>;
+
+#[derive(Debug)]
 pub struct Environment {
     pub symbols: HashMap<String, Symbol>,
-    pub enclosing: Option<Box<Environment>>,
+    pub enclosing: Option<Env>,
 }
 
 #[derive(Debug, Clone)]
@@ -17,18 +22,18 @@ pub enum Symbol {
 }
 
 impl Environment {
-    pub fn new() -> Self {
-        Environment {
+    pub fn new() -> Env {
+        Rc::new(RefCell::new(Environment {
             symbols: HashMap::new(),
             enclosing: None,
-        }
+        }))
     }
 
-    pub fn with_enclosing(enclosing: Environment) -> Self {
-        Environment {
+    pub fn with_enclosing(enclosing: Env) -> Env {
+        Rc::new(RefCell::new(Environment {
             symbols: HashMap::new(),
-            enclosing: Some(Box::new(enclosing)),
-        }
+            enclosing: Some(enclosing),
+        }))
     }
 
     pub fn define(&mut self, name: String, value: Symbol) {
@@ -40,26 +45,22 @@ impl Environment {
             return Some(v.clone());
         }
 
-        if let Some(ref parent) = self.enclosing {
-            return parent.get(name);
-        }
-
-        None
+        self.enclosing
+            .as_ref()
+            .and_then(|parent| parent.borrow().get(name))
     }
 
     pub fn assign(&mut self, name: &str, value: Symbol) -> Result<(), Error> {
         if self.symbols.contains_key(name) {
             self.symbols.insert(name.to_string(), value);
-            return Ok(());
+            Ok(())
+        } else if let Some(parent) = self.enclosing.as_ref() {
+            parent.borrow_mut().assign(name, value)
+        } else {
+            Err(Error::RuntimeError(
+                1,
+                format!("Undefined variable '{}'", name),
+            ))
         }
-
-        if let Some(ref mut parent) = self.enclosing {
-            return parent.assign(name, value);
-        }
-
-        Err(Error::RuntimeError(
-            1,
-            format!("Undefined variable '{}'", name),
-        ))
     }
 }
